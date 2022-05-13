@@ -1,7 +1,7 @@
  ///////////////////////////////////////////////////////////////////////
 //
 // P3D Course
-// (c) 2021 by João Madeiras Pereira
+// (c) 2021 by Joï¿½o Madeiras Pereira
 //Ray Tracing P3F scenes and drawing points with Modern OpenGL
 //
 ///////////////////////////////////////////////////////////////////////
@@ -25,7 +25,7 @@
 #include "macros.h"
 
 //Enable OpenGL drawing.  
-bool drawModeEnabled = false;
+bool drawModeEnabled = true;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 
@@ -184,8 +184,8 @@ void createBufferObjects()
 	glGenBuffers(2, VboId);
 	glBindBuffer(GL_ARRAY_BUFFER, VboId[0]);
 
-	/* Só se faz a alocação dos arrays glBufferData (NULL), e o envio dos pontos para a placa gráfica
-	é feito na drawPoints com GlBufferSubData em tempo de execução pois os arrays são GL_DYNAMIC_DRAW */
+	/* Sï¿½ se faz a alocaï¿½ï¿½o dos arrays glBufferData (NULL), e o envio dos pontos para a placa grï¿½fica
+	ï¿½ feito na drawPoints com GlBufferSubData em tempo de execuï¿½ï¿½o pois os arrays sï¿½o GL_DYNAMIC_DRAW */
 	glBufferData(GL_ARRAY_BUFFER, size_vertices, NULL, GL_DYNAMIC_DRAW);
 	glEnableVertexAttribArray(VERTEX_COORD_ATTRIB);
 	glVertexAttribPointer(VERTEX_COORD_ATTRIB, 2, GL_FLOAT, 0, 0, 0);
@@ -482,10 +482,11 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 		Color diffColor = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffColor();
 		Color backgroundColor = scene->GetBackgroundColor();
-		Color resultingColor += diffColor * backgroundColor;  // ambient color == skybox/background color?
+		Color resultingColor = diffColor * backgroundColor;  // ambient color == skybox/background color?
 
-		Vector interseptionNormal = scene->getObject(closestObjIdx)->getNormal();
-		Vector hitPoint = ray.origin + (closestInterseption * ray.direction) + (EPSILON * interseptionNormal);  // corrected with bias
+		Vector hitPoint = ray.origin + (ray.direction* closestInterseption);
+		Vector interseptionNormal = scene->getObject(closestObjIdx)->getNormal(hitPoint);
+		hitPoint = hitPoint + (interseptionNormal* EPSILON);  // corrected with bias
 
 		for (int j = 0; j < scene->getNumLights(); j++)
 		{
@@ -510,31 +511,37 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 				if (!inShadow) {
 					Color specColor = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecColor();
 					float shine = scene->getObject(closestObjIdx)->GetMaterial()->GetShine();
-					float lightColor = scene->getLight()->color();
+					Color lightColor = scene->getLight(j)->color;
 
-					diff = lightColor * diffColor * (interseptionNormal * l);
-					spec = lightColor * specColor * pow(interseptionNormal * -1 * ray.direction, shine);
+					Color diff = lightColor * diffColor * (interseptionNormal * l);
+					Color spec = lightColor * specColor * pow(interseptionNormal * -1 * ray.direction, shine);
 					resultingColor += diff + spec;
 				}
 			}
 		}
 
+		return resultingColor;  // delete
+
+		/*
 		if (depth >= MAX_DEPTH) {
 			return resultingColor;
 		}
 		else {
-			if (scene->getObject()->GetMaterial()->GetReflection() = 1)
+			if (scene->getObject(closestObjIdx)->GetMaterial()->GetReflection() >= 0)
 			{
 				// ...
 			}
 
-			if (scene->getObject()->GetMaterial()->GetRefrIndex() = 1)
+			if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() >= 0)
 			{
+				float refrIndex = scene->getObject(closestObjIdx)->GetMaterial()->GetRefrIndex();
+				float sin_t = refrIndex * 
 				// ...
+
 			}
 		}
+		*/
 	}
-
 }
 
 
@@ -562,13 +569,10 @@ void renderScene()
 			pixel.x = x + 0.5f;
 			pixel.y = y + 0.5f;
 
-			/*YOUR 2 FUNTIONS:
 			Ray ray = scene->GetCamera()->PrimaryRay(pixel);   //function from camera.h
 
 			color = rayTracing(ray, 1, 1.0).clamp();
-			*/
 
-			color = scene->GetBackgroundColor(); //TO CHANGE - just for the template
 
 			img_Data[counter++] = u8fromfloat((float)color.r());
 			img_Data[counter++] = u8fromfloat((float)color.g());
