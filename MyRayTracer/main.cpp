@@ -455,7 +455,7 @@ void setupGLUT(int argc, char* argv[])
 
 Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medium 1 where the ray is travelling
 {	
-	float t1, t2, closestInterseption, closestShadow;
+	float t1, t2, closestInterseption;
 	int closestObjIdx;
 	bool rayIntersepts = false, inShadow = false;
 
@@ -469,6 +469,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 				}
 			}
 			else {
+				closestObjIdx = i;
 				closestInterseption = t1;
 				rayIntersepts = true;
 			}
@@ -481,8 +482,9 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 	else {
 
 		Color diffColor = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffColor();
+		Color specColor = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecColor();
 		Color backgroundColor = scene->GetBackgroundColor();
-		Color resultingColor = diffColor * backgroundColor;  // ambient color == skybox/background color?
+		Color resultingColor = diffColor * backgroundColor;  // ambient color == skybox/background color * diffuse color?
 
 		Vector hitPoint = ray.origin + (ray.direction* closestInterseption);
 		Vector interseptionNormal = scene->getObject(closestObjIdx)->getNormal(hitPoint);
@@ -509,12 +511,15 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 				}
 
 				if (!inShadow) {
-					Color specColor = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecColor();
 					float shine = scene->getObject(closestObjIdx)->GetMaterial()->GetShine();
 					Color lightColor = scene->getLight(j)->color;
 
-					Color diff = lightColor * diffColor * (interseptionNormal * l);
-					Color spec = lightColor * specColor * pow(interseptionNormal * -1 * ray.direction, shine);
+					float kd = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffuse();
+					float ks = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecular();
+
+					Color diff = lightColor * kd * diffColor * (interseptionNormal * l);  // ?
+					Color spec = lightColor * ks * specColor * pow(interseptionNormal * -1 * ray.direction, shine);  // ?
+
 					resultingColor += diff + spec;
 				}
 			}
@@ -535,7 +540,6 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() >= 0)
 			{
 				float refrIndex = scene->getObject(closestObjIdx)->GetMaterial()->GetRefrIndex();
-				float sin_t = refrIndex * 
 				// ...
 
 			}
