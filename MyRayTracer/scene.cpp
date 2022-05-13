@@ -91,11 +91,11 @@ bool Sphere::intercepts(Ray& r, float& t )
 
 	if (nabla > 0)  // sphere intercepted
 	{
-		if (fartherIntersection < 0)  // sphere behind the eye
+		if (fartherIntersection < 0)  // sphere behind ray origin
 		{
 			return (false);
 		}
-		else  // eye inside the sphere or eye behind the sphere
+		else  // ray origin inside the sphere or ray origin behind the sphere
 		{
 			t = (closerIntersection < 0 && fartherIntersection > 0) ? fartherIntersection : closerIntersection;
 			return (true);

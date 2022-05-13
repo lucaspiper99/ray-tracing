@@ -455,21 +455,21 @@ void setupGLUT(int argc, char* argv[])
 
 Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medium 1 where the ray is travelling
 {	
-	float t, closestInterseption;
+	float t1, t2, closestInterseption, closestShadow;
 	int closestObjIdx;
-	bool rayIntersepts = false;
+	bool rayIntersepts = false, inShadow = false;
 
 	for (int i = 0; i < scene->getNumObjects(); i++)
 	{
-		if (scene->getObject(i)->intercepts(ray, t)) {
+		if (scene->getObject(i)->intercepts(ray, t1)) {
 			if (rayIntersepts) {
-				if (t < closestInterseption) {
+				if (t1 < closestInterseption) {
 					closestObjIdx = i;
-					closestInterseption = t;
+					closestInterseption = t1;
 				}
 			}
 			else {
-				closestInterseption = t;
+				closestInterseption = t1;
 				rayIntersepts = true;
 			}
 		}
@@ -479,15 +479,60 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 		return scene->GetBackgroundColor();
 	}
 	else {
+
+		Color diffColor = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffColor();
+		Color backgroundColor = scene->GetBackgroundColor();
+		Color resultingColor += diffColor * backgroundColor;  // ambient color == skybox/background color?
+
 		Vector interseptionNormal = scene->getObject(closestObjIdx)->getNormal();
 		Vector hitPoint = ray.origin + (closestInterseption * ray.direction) + (EPSILON * interseptionNormal);  // corrected with bias
 
 		for (int j = 0; j < scene->getNumLights(); j++)
 		{
-			
+			Vector l = scene->getLight(j)->position - hitPoint;
+			float lightDistance = l.length();
+			l.normalize();
+			if (l * interseptionNormal > 0) {
+
+				Ray shadowFeeler = Ray(hitPoint, l);
+
+				for (int k = 0; k < scene->getNumObjects(); k++)
+				{
+					if (scene->getObject(k)->intercepts(shadowFeeler, t2)) {
+						if (t2 < lightDistance)  // check if the shadow is being casted by an object behind the light source
+						{
+							inShadow = true;
+							break;
+						}
+					}
+				}
+
+				if (!inShadow) {
+					Color specColor = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecColor();
+					float shine = scene->getObject(closestObjIdx)->GetMaterial()->GetShine();
+					float lightColor = scene->getLight()->color();
+
+					diff = lightColor * diffColor * (interseptionNormal * l);
+					spec = lightColor * specColor * pow(interseptionNormal * -1 * ray.direction, shine);
+					resultingColor += diff + spec;
+				}
+			}
 		}
 
-		return Color(0.0f, 0.0f, 0.0f);  // ?
+		if (depth >= MAX_DEPTH) {
+			return resultingColor;
+		}
+		else {
+			if (scene->getObject()->GetMaterial()->GetReflection() = 1)
+			{
+				// ...
+			}
+
+			if (scene->getObject()->GetMaterial()->GetRefrIndex() = 1)
+			{
+				// ...
+			}
+		}
 	}
 
 }
