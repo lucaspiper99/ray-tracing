@@ -73,10 +73,11 @@ Plane::Plane(Vector& P0, Vector& P1, Vector& P2)
 bool Plane::intercepts( Ray& r, float& t )
 {
 	float denom = PN* r.direction;
-	if (denom > 1e-6) {
+	if (denom > 1e-6)  // checks if ray and plane are parallel
+	{
 		Vector numVector = (PN* D) - r.origin;
 		t = (numVector* PN) / denom;
-		return (t >= 0);
+		return (t >= 0);  // checks if plane is behind ray origin
 	}
 
 	return (false);

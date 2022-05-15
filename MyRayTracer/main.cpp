@@ -476,15 +476,17 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 		}
 	}
 
+	Color backgroundColor = scene->GetBackgroundColor();
+
 	if (!rayIntersepts) {
-		return scene->GetBackgroundColor();
+		return backgroundColor;
 	}
 	else {
 
 		Color diffColor = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffColor();
 		Color specColor = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecColor();
-		Color backgroundColor = scene->GetBackgroundColor();
-		Color resultingColor = diffColor * backgroundColor;  // ambient color == skybox/background color * diffuse color?
+
+		Color resultingColor = diffColor * backgroundColor;  // ambient color == background color * diffuse color?
 
 		Vector hitPoint = ray.origin + (ray.direction* closestInterseption);
 		Vector interseptionNormal = scene->getObject(closestObjIdx)->getNormal(hitPoint);
@@ -495,6 +497,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			Vector l = scene->getLight(j)->position - hitPoint;
 			float lightDistance = l.length();
 			l.normalize();
+
 			if (l * interseptionNormal > 0) {
 
 				Ray shadowFeeler = Ray(hitPoint, l);
@@ -517,8 +520,10 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 					float kd = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffuse();
 					float ks = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecular();
 
+					Vector halfwayVector = (l + (ray.direction* -1.0)) * 0.5;
+
 					Color diff = lightColor * kd * diffColor * (interseptionNormal * l);  // ?
-					Color spec = lightColor * ks * specColor * pow(interseptionNormal * -1 * ray.direction, shine);  // ?
+					Color spec = lightColor * ks * specColor * pow(interseptionNormal * halfwayVector, shine);  // ?
 
 					resultingColor += diff + spec;
 				}
