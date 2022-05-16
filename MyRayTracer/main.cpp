@@ -490,7 +490,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 		Vector hitPoint = ray.origin + (ray.direction* closestInterseption);
 		Vector normal = scene->getObject(closestObjIdx)->getNormal(hitPoint);
-		hitPoint = hitPoint + (normal* EPSILON);  // corrected with bias
+		hitPoint = hitPoint;  // corrected with bias
 
 		for (int j = 0; j < scene->getNumLights(); j++)
 		{
@@ -498,11 +498,14 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			float lightDistance = l.length();
 			l.normalize();
 
+			bool isInsideObject = normal * ray.direction > 0;
+			normal = isInsideObject ? normal * -1.0f : normal;
+
 			if (l * normal > 0) {
 
-				Ray shadowFeeler = Ray(hitPoint, l);
+				Ray shadowFeeler = Ray(hitPoint + (normal * EPSILON), l);
 
-				for (int k = 0; k < scene->getNumObjects(); k++)
+				for (int k = 0; k < scene->getNumObjects(); k++) // substituir por while
 				{
 					if (scene->getObject(k)->intercepts(shadowFeeler, t2)) {
 						if (t2 < lightDistance)  // check if the shadow is being casted by an object behind the light source
@@ -520,29 +523,36 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 					float kd = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffuse();
 					float ks = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecular();
 
-					Vector halfwayVector = (l + (ray.direction* -1.0)) * 0.5;
+					Vector halfwayVector = (l + (ray.direction* -1.0));
+					halfwayVector.normalize();
 
 					Color diff = lightColor * kd * diffColor * max(normal * l, .0f);
-					Color spec = lightColor * ks * specColor * pow(max(normal * halfwayVector, .0f), shine);
 
-					resultingColor += diff + spec;
-				} else {
+					if (ks > 0 && normal * halfwayVector > 0)
+					{
+						Color spec = lightColor * ks * specColor * pow(normal * halfwayVector, shine);
+						resultingColor += spec;
+					}
+
+					resultingColor += diff;
 				}
 			}
 		}
 
-		
+		return resultingColor;
+
+		/*
 		if (depth >= MAX_DEPTH) {
 			return resultingColor;
 		}
 		else {
 
 			Vector v = ray.direction * -1.0f;
-			bool isInsideObject = normal * ray.direction > 0;
+			// bool isInsideObject = normal * ray.direction > 0;
 			float ior_2 = scene->getObject(closestObjIdx)->GetMaterial()->GetRefrIndex();
 
 			float R0 = pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
-			normal = isInsideObject ? normal * -1.0f : normal;
+			// normal = isInsideObject ? normal * -1.0f : normal;
 			Vector vt = normal * (v * normal) - v;
 			float cosI = sqrt(1 - pow(vt.length(), 2)); 
 			
@@ -550,11 +560,11 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			bool totalReflection = sinT > 1;
 			float cosT, kr;
 			if (totalReflection) {
-				cosT = sqrt(1 - pow(ior_1 / ior_2 * vt.length(), 2));
-				kr = isInsideObject ? R0 + (1 - R0) * pow(1 - cosT, 5) : R0 + (1 - R0) * pow(1 - cosI, 5);
+				kr = 1.0f;
 			}
 			else {
-				kr = 1.0f;
+				cosT = sqrt(1 - pow(sinT, 2));
+				kr = isInsideObject ? R0 + (1 - R0) * pow(1 - cosT, 5) : R0 + (1 - R0) * pow(1 - cosI, 5);
 			}
 
 			kr = clamp(kr, 0.0f, 1.0f);
@@ -570,7 +580,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 			if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() > 0)
 			{
-				if (totalReflection) {
+				if (!totalReflection) {
 					Vector rt = vt.normalize() * sinT - normal * cosT;
 					Ray transmittedRay = Ray(hitPoint - (normal * 2 * EPSILON), rt);  // corrected with bias
 					resultingColor += rayTracing(transmittedRay, depth + 1, ior_2) * (1 - kr);
@@ -578,7 +588,9 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			}
 
 			return resultingColor;
+			
 		}
+		*/
 		
 	}
 }
