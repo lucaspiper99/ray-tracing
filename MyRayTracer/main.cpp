@@ -457,7 +457,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 {	
 	float t1, t2, closestInterseption;
 	int closestObjIdx;
-	bool rayIntersepts = false, inShadow = false;
+	bool rayIntersepts = false;
 
 	for (int i = 0; i < scene->getNumObjects(); i++)
 	{
@@ -492,14 +492,15 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 		Vector normal = scene->getObject(closestObjIdx)->getNormal(hitPoint);
 		hitPoint = hitPoint;  // corrected with bias
 
+		bool isInsideObject = normal * ray.direction > 0;
+		normal = isInsideObject ? normal * -1.0f : normal;
+
 		for (int j = 0; j < scene->getNumLights(); j++)
 		{
+			bool inShadow = false;
 			Vector l = scene->getLight(j)->position - hitPoint;
 			float lightDistance = l.length();
 			l.normalize();
-
-			bool isInsideObject = normal * ray.direction > 0;
-			normal = isInsideObject ? normal * -1.0f : normal;
 
 			if (l * normal > 0) {
 
@@ -539,9 +540,9 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			}
 		}
 
-		return resultingColor;
+		//return resultingColor;
 
-		/*
+		
 		if (depth >= MAX_DEPTH) {
 			return resultingColor;
 		}
@@ -590,7 +591,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			return resultingColor;
 			
 		}
-		*/
+		
 		
 	}
 }
