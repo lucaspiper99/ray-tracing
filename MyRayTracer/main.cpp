@@ -483,14 +483,12 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 	}
 	else {
 
-		Color diffColor = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffColor();
-		Color specColor = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecColor();
+		Color resultingColor = Color(.0f, .0f, .0f);
 
-		Color resultingColor = Color(.0f, .0f, .0f);  // ??? ambient color == background color * diffuse color?
-
-		Vector hitPoint = ray.origin + (ray.direction* closestInterseption);
+		Vector hitPoint = ray.origin + (ray.direction * closestInterseption);
 		Vector normal = scene->getObject(closestObjIdx)->getNormal(hitPoint);
-		Vector bias = normal * 2 * EPSILON;
+		Vector bias = normal * EPSILON;
+		Vector v = ray.direction * -1.0f;
 
 		bool isInsideObject = normal * ray.direction > 0;
 		normal = isInsideObject ? normal * -1.0f : normal;
@@ -500,15 +498,18 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			bool inShadow = false;
 			Vector l = scene->getLight(j)->position - hitPoint;
 			float lightDistance = l.length();
-			l.normalize();
+			l = l.normalize();
 
 			if (l * normal > 0) {
-
 				
 				Ray shadowFeeler = Ray(hitPoint + bias, l);
 
-				for (int k = 0; k < scene->getNumObjects(); k++) // substituir por while
+				int k = 0;
+				while (!inShadow)
 				{
+					if (k >= scene->getNumObjects()) {
+						break;
+					}
 					if (scene->getObject(k)->intercepts(shadowFeeler, t2)) {
 						if (t2 < lightDistance)  // check if the shadow is being casted by an object behind the light source
 						{
@@ -516,27 +517,31 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 							break;
 						}
 					}
+					k++;
 				}
 
 				if (!inShadow) {
-					float shine = scene->getObject(closestObjIdx)->GetMaterial()->GetShine();
+					
 					Color lightColor = scene->getLight(j)->color;
+					Color diffColor = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffColor();
+					Color specColor = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecColor();
 
+					float shine = scene->getObject(closestObjIdx)->GetMaterial()->GetShine();
 					float kd = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffuse();
 					float ks = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecular();
 
-					Vector halfwayVector = (l + (ray.direction* -1.0));
-					halfwayVector.normalize();
+					Vector halfwayVector = (l + v).normalize();
 
-					Color diff = lightColor * kd * diffColor * max(normal * l, .0f);
+					Color diff = lightColor * kd * diffColor * (normal * l);
+					resultingColor += diff;
 
-					if (ks > 0 && normal * halfwayVector > 0)
+					if (ks > 0 && (normal * halfwayVector) > 0)
 					{
 						Color spec = lightColor * ks * specColor * pow(normal * halfwayVector, shine);
 						resultingColor += spec;
 					}
 
-					resultingColor += diff;
+					resultingColor = resultingColor.clamp();
 				}
 			}
 		}
@@ -549,48 +554,56 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 		}
 		else {
 
-			Vector v = ray.direction * -1.0f;
-			// bool isInsideObject = normal * ray.direction > 0;
-			float ior_2 = scene->getObject(closestObjIdx)->GetMaterial()->GetRefrIndex();
+			bool isInsideObject = normal * ray.direction > 0;
+			normal = isInsideObject ? normal * -1.0f : normal;
 
-			float R0 = pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
-			// normal = isInsideObject ? normal * -1.0f : normal;
-			Vector vt = normal * (v * normal) - v;
-			float cosI = sqrt(1 - pow(vt.length(), 2)); 
-			
-			float sinT = ior_1 / ior_2 * vt.length();
-			bool totalReflection = sinT > 1;
-			float cosT, kr;
-			if (totalReflection) {
-				kr = 1.0f;
+			Vector refletedRayDirection = (normal * (2 * (v * normal)) - v).normalize();
+			Ray reflectedRay = Ray(hitPoint + bias, refletedRayDirection);
+
+			float specularReflectionCoeff = scene->getObject(closestObjIdx)->GetMaterial()->GetReflection();
+
+			if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() == 0) {
+				resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * specularReflectionCoeff;
 			}
 			else {
-				cosT = sqrt(1 - pow(sinT, 2));
-				kr = isInsideObject ? R0 + (1 - R0) * pow(1 - cosT, 5) : R0 + (1 - R0) * pow(1 - cosI, 5);
-			}
 
-			kr = clamp(kr, 0.0f, 1.0f);
+				float ior_2 = scene->getObject(closestObjIdx)->GetMaterial()->GetRefrIndex();
+				float R0 = pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
 
+				Vector vt = (normal * (v * normal)) - v;
+				float cosI = sqrt(1 - pow(vt.length(), 2));
+				float sinT = (ior_1 / ior_2) * vt.length();
+				float cosT, kr;
 
-			if (scene->getObject(closestObjIdx)->GetMaterial()->GetReflection() > 0)
-			{
-				Ray reflectedRay = Ray(hitPoint + bias,  normal * 2 * (v * normal) - v); // corrected with bias
-				resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * kr;
+				if (sinT > 1) {
+					kr = 1.0f;
+				}
+				else {
+					cosT = sqrt(1 - pow(sinT, 2));
+					kr = isInsideObject ? R0 + (1 - R0) * pow(1 - cosT, 5) : R0 + (1 - R0) * pow(1 - cosI, 5);
+				}
 
-			}
-		  
+				if (scene->getObject(closestObjIdx)->GetMaterial()->GetReflection() > 0)
+				{
+					resultingColor += rayTracing(reflectedRay, depth + 1, ior_2) * kr;
+				}
 
-			if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() > 0)
-			{
-				if (!totalReflection) {
-					Vector rt = vt.normalize() * sinT - normal * cosT;
-					Ray transmittedRay = Ray(hitPoint - bias, rt);  // corrected with bias
-					resultingColor += rayTracing(transmittedRay, depth + 1, ior_2) * (1 - kr);
+				if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() > 0)
+				{
+					if (sinT <= 1) {
+						Vector rt = vt.normalize() * sinT - normal * cosT;
+						Ray transmittedRay = Ray(hitPoint - bias, rt);
+						resultingColor += rayTracing(transmittedRay, depth + 1, ior_2) * (1 - kr);
+					}
 				}
 			}
 
 			return resultingColor;
-			
+
+			/*float PerpendicularR = pow(abs((ior_1 * cosI - ior_2 + cosT)/ (ior_1 * cosI + ior_2 + cosT)), 2);
+			float ParallelR = pow(abs((ior_1 * cosT - ior_2 + cosI) / (ior_1 * cosT + ior_2 + cosI)),2);
+			float kr = (PerpendicularR + ParallelR) * 0.5;*/
+
 		}
 		
 		

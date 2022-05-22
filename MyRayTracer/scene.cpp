@@ -51,9 +51,7 @@ Plane::Plane(Vector& a_PN, float a_D)
 Plane::Plane(Vector& P0, Vector& P1, Vector& P2)
 {
    float l;
-
-   PN = ((P1 - P0) % (P2 - P0)) * -1.0;
-
+   PN = ((P1 - P0) % (P2 - P0));
 
    if ((l=PN.length()) == 0.0)
    {
@@ -62,7 +60,7 @@ Plane::Plane(Vector& P0, Vector& P1, Vector& P2)
    else
    {
      PN.normalize();
-     D  = (P0*PN) / sqrt(PN*PN);
+     D  = P0 * PN;
    }
 }
 
@@ -72,14 +70,12 @@ Plane::Plane(Vector& P0, Vector& P1, Vector& P2)
 
 bool Plane::intercepts( Ray& r, float& t )
 {
-	float denom = PN* r.direction;
-	if (denom > 1e-6)  // checks if ray and plane are parallel
+	float denominator = PN * r.direction;
+	if (denominator != 0)  // checks if ray and plane are parallel
 	{
-		Vector numVector = (PN* D) - r.origin;
-		t = (numVector* PN) / denom;
+		t = (((PN * D) - r.origin) * PN) / denominator;
 		return (t >= 0);  // checks if plane is behind ray origin
 	}
-
 	return (false);
 }
 
