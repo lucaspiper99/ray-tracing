@@ -25,9 +25,10 @@
 #include "macros.h"
 
 //Enable OpenGL drawing.  
-bool drawModeEnabled = true;
+bool drawModeEnabled = false;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
+bool antiAliasing = false;
 
 #define MAX_DEPTH 4  //number of bounces
 
@@ -487,15 +488,16 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 		Vector hitPoint = ray.origin + (ray.direction * closestInterseption);
 		Vector normal = scene->getObject(closestObjIdx)->getNormal(hitPoint);
-		Vector bias = normal * EPSILON;
-		Vector v = ray.direction * -1.0f;
 
 		bool isInsideObject = normal * ray.direction > 0;
 		normal = isInsideObject ? normal * -1.0f : normal;
+		Vector bias = normal * EPSILON;
+		Vector v = ray.direction * -1.0f;
 
 		for (int j = 0; j < scene->getNumLights(); j++)
 		{
 			bool inShadow = false;
+
 			Vector l = scene->getLight(j)->position - hitPoint;
 			float lightDistance = l.length();
 			l = l.normalize();
@@ -520,12 +522,14 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 					k++;
 				}
 
-				//if (!inShadow) {
-				if (true) {
+				if (!inShadow) {
 					
 					Color lightColor = scene->getLight(j)->color;
 					Color diffColor = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffColor();
 					Color specColor = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecColor();
+
+					float specularReflectionCoeff = scene->getObject(closestObjIdx)->GetMaterial()->GetReflection();
+
 
 					float shine = scene->getObject(closestObjIdx)->GetMaterial()->GetShine();
 					float kd = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffuse();
@@ -536,8 +540,13 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 					Color diff = lightColor * kd * diffColor * (normal * l);
 					resultingColor += diff;
 
+					/*int num_lights = scene->getNumLights();
+					float K1 = 1.25;
+					float Katt = 1 / (K1 * (num_lights));*/
+
 					if (ks > 0 && (normal * halfwayVector) > 0)
 					{
+						//Color spec = lightColor * ks * specColor * pow(normal * halfwayVector, shine) * Katt;
 						Color spec = lightColor * ks * specColor * pow(normal * halfwayVector, shine);
 						resultingColor += spec;
 					}
@@ -555,20 +564,18 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 		}
 		else {
 
-			bool isInsideObject = normal * ray.direction > 0;
-			normal = isInsideObject ? normal * -1.0f : normal;
-
 			Vector refletedRayDirection = (normal * (2 * (v * normal)) - v).normalize();
 			Ray reflectedRay = Ray(hitPoint + bias, refletedRayDirection);
 
 			float specularReflectionCoeff = scene->getObject(closestObjIdx)->GetMaterial()->GetReflection();
 
-			if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() == 0 && specularReflectionCoeff > 0) {
-				resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * specularReflectionCoeff;
+			if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() == 0) {
+				if (specularReflectionCoeff > 0) {
+					resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * specularReflectionCoeff;
+				}
 			}
 			else {
-
-				float ior_2 = scene->getObject(closestObjIdx)->GetMaterial()->GetRefrIndex();
+				float ior_2 = isInsideObject? 1 : scene->getObject(closestObjIdx)->GetMaterial()->GetRefrIndex(); 
 				float R0 = pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
 
 				Vector vt = (normal * (v * normal)) - v;
@@ -601,10 +608,6 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 			return resultingColor;
 
-			/*float PerpendicularR = pow(abs((ior_1 * cosI - ior_2 + cosT)/ (ior_1 * cosI + ior_2 + cosT)), 2);
-			float ParallelR = pow(abs((ior_1 * cosT - ior_2 + cosI) / (ior_1 * cosT + ior_2 + cosI)),2);
-			float kr = (PerpendicularR + ParallelR) * 0.5;*/
-
 		}
 		
 		
@@ -617,6 +620,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 void renderScene()
 {
+	int n = 4;
 	int index_pos = 0;
 	int index_col = 0;
 	unsigned int counter = 0;
@@ -630,15 +634,36 @@ void renderScene()
 	{
 		for (int x = 0; x < RES_X; x++)
 		{
-			Color color;
+			
+			Color color = Color(.0f, .0f,.0f);
+			Vector pixel;
+			
+			/* ANTI-ALIASING */
+			if (antiAliasing) {
+				for (float i = 0; i < n / 4; i += 0.25) {
+					for (float j = 0; j < n / 4; j += 0.25) {
 
-			Vector pixel;  //viewport coordinates
-			pixel.x = x + 0.5f;
-			pixel.y = y + 0.5f;
+						double horizontalSway = (double) rand() / (RAND_MAX);
+						double verticalSway = (double) rand() / (RAND_MAX);
 
-			Ray ray = scene->GetCamera()->PrimaryRay(pixel);   //function from camera.h
+						//viewport coordinates
+						
+						pixel.x = x + i + horizontalSway * 0.25;
+						pixel.y = y + j + verticalSway * 0.25;
 
-			color = rayTracing(ray, 1, 1.0).clamp();
+						Ray ray = scene->GetCamera()->PrimaryRay(pixel);   //function from camera.h
+
+						color += rayTracing(ray, 1, 1.0).clamp() * (float) (1 / pow(n, 2));
+					}
+				}
+			}
+			else {
+				pixel.x = x + 0.5f; 
+				pixel.y = y + 0.5f; 
+
+				Ray ray = scene->GetCamera()->PrimaryRay(pixel);
+				color = rayTracing(ray, 1, 1.0).clamp(); // W/O ANTI-ALIASING
+			}
 
 
 			img_Data[counter++] = u8fromfloat((float)color.r());
