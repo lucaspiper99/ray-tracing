@@ -12,13 +12,19 @@ Triangle::Triangle(Vector& P0, Vector& P1, Vector& P2)
 	points[0] = P0; points[1] = P1; points[2] = P2;
 
 	/* Calculate the normal */
-	normal = Vector(0, 0, 0);
-	normal.normalize();
+	Vector normal = ((points[1] - points[0]) % (points[2] - points[0]));
+	normal = normal.normalize();
 
 	//YOUR CODE to Calculate the Min and Max for bounding box
-	Min = Vector(+FLT_MAX, +FLT_MAX, +FLT_MAX);
-	Max = Vector(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 
+	/*float xMin = min({ P0.x, P1.x, P2.x });
+	float yMin = min({ P0.y, P1.y, P2.y });
+	float zMin = min({ P0.z, P1.z, P2.z });
+	float xMax = max({ P0.x, P1.x, P2.x });
+	float yMax = max({ P0.y, P1.y, P2.y });
+	float zMax = max({ P0.z, P1.z, P2.z });
+	Min = Vector(xMin, yMin, zMin);
+	Max = Vector(xMax, yMax, zMax);*/
 
 	// enlarge the bounding box a bit just in case...
 	Min -= EPSILON;
@@ -40,8 +46,23 @@ Vector Triangle::getNormal(Vector point)
 
 bool Triangle::intercepts(Ray& r, float& t ) {
 
-	//PUT HERE YOUR CODE
-	return (false);
+	Vector v1 = points[1] - points[0];
+	Vector v2 = points[2] - points[0];
+	Vector v3 = r.direction * -1.0f;
+	Vector vs = r.origin - points[0];
+
+	// using the triple product
+	float det = (v1 * (v2 % v3));
+	if (det == 0) return false;
+
+	float beta = (vs * (v2 % v3)) / det;
+	float gamma = (v1 * (vs % v3)) / det;
+	t = (v1 * (v2 % vs)) / det;
+
+	if (beta < 0 || beta > 1 || gamma < 0 || gamma > 1) return false;
+	if ((beta + gamma) < 0 || (beta + gamma) > 1) return false;
+
+	return (t > 0);
 }
 
 Plane::Plane(Vector& a_PN, float a_D)
@@ -74,9 +95,9 @@ bool Plane::intercepts( Ray& r, float& t )
 	if (denominator != 0)  // checks if ray and plane are parallel
 	{
 		t = (((PN * D) - r.origin) * PN) / denominator;
-		return (t >= 0);  // checks if plane is behind ray origin
+		return (t > 0);  // checks if plane is behind ray origin
 	}
-	return (false);
+	return false;
 }
 
 Vector Plane::getNormal(Vector point) 

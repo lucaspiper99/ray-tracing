@@ -501,7 +501,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			l = l.normalize();
 
 			if (l * normal > 0) {
-				
+
 				Ray shadowFeeler = Ray(hitPoint + bias, l);
 
 				int k = 0;
@@ -520,7 +520,8 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 					k++;
 				}
 
-				if (!inShadow) {
+				//if (!inShadow) {
+				if (true) {
 					
 					Color lightColor = scene->getLight(j)->color;
 					Color diffColor = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffColor();
@@ -562,7 +563,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 			float specularReflectionCoeff = scene->getObject(closestObjIdx)->GetMaterial()->GetReflection();
 
-			if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() == 0) {
+			if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() == 0 && specularReflectionCoeff > 0) {
 				resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * specularReflectionCoeff;
 			}
 			else {
@@ -583,7 +584,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 					kr = isInsideObject ? R0 + (1 - R0) * pow(1 - cosT, 5) : R0 + (1 - R0) * pow(1 - cosI, 5);
 				}
 
-				if (scene->getObject(closestObjIdx)->GetMaterial()->GetReflection() > 0)
+				if (specularReflectionCoeff > 0)
 				{
 					resultingColor += rayTracing(reflectedRay, depth + 1, ior_2) * kr;
 				}
