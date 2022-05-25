@@ -107,8 +107,24 @@ Vector Plane::getNormal(Vector point)
 
 
 bool Sphere::intercepts(Ray& r, float& t )
-{	
-	float nabla = pow(r.direction * (r.origin - center), 2) - (pow((r.origin - center).length(), 2) - SqRadius);
+{
+	double b = (center - r.origin) * r.direction;
+	double c = ((center - r.origin) * (center - r.origin)) - SqRadius;
+
+	if (c > .0f) {
+		if (b <= .0f) return false;
+		if ((pow(b, 2) - c) < .0f) return false;
+		t = b - sqrt(pow(b, 2) - c);
+		return true;
+	}
+	else {
+		t = b + sqrt(pow(b, 2) - c);
+		return true;
+	}
+
+	// Without optimization
+
+	/*float nabla = pow(r.direction * (r.origin - center), 2) - (pow((r.origin - center).length(), 2) - SqRadius);
 	float closerIntersection = (r.origin - center)*  (r.direction* -1.0) - sqrt(nabla);
 	float fartherIntersection = (r.origin - center)* (r.direction* -1.0) + sqrt(nabla);
 
@@ -127,8 +143,7 @@ bool Sphere::intercepts(Ray& r, float& t )
 	else  // sphere not intercepted
 	{
 		return (false);
-	}
-	
+	}*/	
 }
 
 

@@ -25,12 +25,14 @@
 #include "macros.h"
 
 //Enable OpenGL drawing.  
-bool drawModeEnabled = false;
+bool drawModeEnabled = true;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
-bool antiAliasing = false;
 
-#define MAX_DEPTH 4  //number of bounces
+bool antiAliasing = false;
+bool softShadows = false;
+
+#define MAX_DEPTH 6  //number of bounces
 
 #define CAPTION "Whitted Ray-Tracer"
 #define VERTEX_COORD_ATTRIB 0
@@ -478,12 +480,15 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 	}
 
 	Color backgroundColor = scene->GetBackgroundColor();
+	Color diffColor, specColor;
 
 	if (!rayIntersepts) {
 		return backgroundColor;
 	}
 	else {
 
+		diffColor = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffColor();
+		specColor = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecColor();
 		Color resultingColor = Color(.0f, .0f, .0f);
 
 		Vector hitPoint = ray.origin + (ray.direction * closestInterseption);
@@ -498,7 +503,19 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 		{
 			bool inShadow = false;
 
-			Vector l = scene->getLight(j)->position - hitPoint;
+			Vector l;
+			if (softShadows) {
+				Vector a = Vector(1, 0, 0);
+				Vector b = Vector(0, 1, 0);
+				double random1 = (double) rand() / (RAND_MAX);
+				double random2 = (double) rand() / (RAND_MAX);
+				Vector randomVector = scene->getLight(j)->position + a * random1 + b * random2;
+				l = randomVector - hitPoint;
+			}
+			else {
+				l = scene->getLight(j)->position - hitPoint;
+			}
+			
 			float lightDistance = l.length();
 			l = l.normalize();
 
@@ -513,7 +530,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 						break;
 					}
 					if (scene->getObject(k)->intercepts(shadowFeeler, t2)) {
-						if (t2 < lightDistance)  // check if the shadow is being casted by an object behind the light source
+						if (t2 < lightDistance)  // check if the shadow is being casted by an object in front of the light source
 						{
 							inShadow = true;
 							break;
@@ -525,11 +542,6 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 				if (!inShadow) {
 					
 					Color lightColor = scene->getLight(j)->color;
-					Color diffColor = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffColor();
-					Color specColor = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecColor();
-
-					float specularReflectionCoeff = scene->getObject(closestObjIdx)->GetMaterial()->GetReflection();
-
 
 					float shine = scene->getObject(closestObjIdx)->GetMaterial()->GetShine();
 					float kd = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffuse();
@@ -540,14 +552,13 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 					Color diff = lightColor * kd * diffColor * (normal * l);
 					resultingColor += diff;
 
-					/*int num_lights = scene->getNumLights();
-					float K1 = 1.25;
-					float Katt = 1 / (K1 * (num_lights));*/
+					int numLights = scene->getNumLights();
+					float k1 = 1.25;
+					float katt = 1 / (k1 * (numLights));
 
 					if (ks > 0 && (normal * halfwayVector) > 0)
 					{
-						//Color spec = lightColor * ks * specColor * pow(normal * halfwayVector, shine) * Katt;
-						Color spec = lightColor * ks * specColor * pow(normal * halfwayVector, shine);
+						Color spec = lightColor * ks * specColor * pow(normal * halfwayVector, shine) * katt;
 						resultingColor += spec;
 					}
 
@@ -556,7 +567,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			}
 		}
 
-		//return resultingColor;
+		//return resultingColor; // for no reflections and refractions
 
 		
 		if (depth >= MAX_DEPTH) {
@@ -567,15 +578,15 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			Vector refletedRayDirection = (normal * (2 * (v * normal)) - v).normalize();
 			Ray reflectedRay = Ray(hitPoint + bias, refletedRayDirection);
 
-			float specularReflectionCoeff = scene->getObject(closestObjIdx)->GetMaterial()->GetReflection();
+			float reflectance = scene->getObject(closestObjIdx)->GetMaterial()->GetReflection();
 
 			if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() == 0) {
-				if (specularReflectionCoeff > 0) {
-					resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * specularReflectionCoeff;
+				if (reflectance > 0) {
+					resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * reflectance * specColor;
 				}
 			}
 			else {
-				float ior_2 = isInsideObject? 1 : scene->getObject(closestObjIdx)->GetMaterial()->GetRefrIndex(); 
+				float ior_2 = isInsideObject ? 1 : scene->getObject(closestObjIdx)->GetMaterial()->GetRefrIndex(); 
 				float R0 = pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
 
 				Vector vt = (normal * (v * normal)) - v;
@@ -591,13 +602,11 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 					kr = isInsideObject ? R0 + (1 - R0) * pow(1 - cosT, 5) : R0 + (1 - R0) * pow(1 - cosI, 5);
 				}
 
-				if (specularReflectionCoeff > 0)
-				{
-					resultingColor += rayTracing(reflectedRay, depth + 1, ior_2) * kr;
+				if (reflectance > 0) {
+					resultingColor += rayTracing(reflectedRay, depth + 1, ior_2) * reflectance * specColor * kr;
 				}
 
-				if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() > 0)
-				{
+				if (scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance() > 0) {
 					if (sinT <= 1) {
 						Vector rt = vt.normalize() * sinT - normal * cosT;
 						Ray transmittedRay = Ray(hitPoint - bias, rt);
@@ -609,8 +618,6 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			return resultingColor;
 
 		}
-		
-		
 	}
 }
 
