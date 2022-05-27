@@ -60,7 +60,7 @@ bool Triangle::intercepts(Ray& r, float& t ) {
 	t = (v1 * (v2 % vs)) / det;
 
 	if (beta < 0 || beta > 1 || gamma < 0 || gamma > 1) return false;
-	if ((beta + gamma) < 0 || (beta + gamma) > 1) return false;
+	if ((beta + gamma) > 1) return false;
 
 	return (t > 0);
 }
@@ -108,8 +108,8 @@ Vector Plane::getNormal(Vector point)
 
 bool Sphere::intercepts(Ray& r, float& t )
 {
-	double b = (center - r.origin) * r.direction;
-	double c = ((center - r.origin) * (center - r.origin)) - SqRadius;
+	float b = (center - r.origin) * r.direction;
+	float c = ((center - r.origin) * (center - r.origin)) - SqRadius;
 
 	if (c > .0f) {
 		if (b <= .0f) return false;
@@ -121,29 +121,6 @@ bool Sphere::intercepts(Ray& r, float& t )
 		t = b + sqrt(pow(b, 2) - c);
 		return true;
 	}
-
-	// Without optimization
-
-	/*float nabla = pow(r.direction * (r.origin - center), 2) - (pow((r.origin - center).length(), 2) - SqRadius);
-	float closerIntersection = (r.origin - center)*  (r.direction* -1.0) - sqrt(nabla);
-	float fartherIntersection = (r.origin - center)* (r.direction* -1.0) + sqrt(nabla);
-
-	if (nabla > 0)  // sphere intercepted
-	{
-		if (fartherIntersection < 0)  // sphere behind ray origin
-		{
-			return (false);
-		}
-		else  // ray origin inside the sphere or ray origin behind the sphere
-		{
-			t = (closerIntersection < 0 && fartherIntersection > 0) ? fartherIntersection : closerIntersection;
-			return (true);
-		}	
-	}
-	else  // sphere not intercepted
-	{
-		return (false);
-	}*/	
 }
 
 
