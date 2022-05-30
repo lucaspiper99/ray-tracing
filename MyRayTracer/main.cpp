@@ -25,12 +25,12 @@
 #include "macros.h"
 
 //Enable OpenGL drawing.  
-bool drawModeEnabled = true;
+bool drawModeEnabled = false;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 
 bool ANTIALIASING = false;
-bool SOFT_SHADOWS = false;
+bool SOFT_SHADOWS = true;
 bool SOFT_SHADOWS_AA = false;
 bool DOF = false;
 
@@ -519,13 +519,13 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 		for (int j = 0; j < scene->getNumLights(); j++)
 		{
 			bool inShadow = false;
-			int lightSamples;
+			int lightSamples = 1;
+			Vector a, b;
 
-			if (SOFT_SHADOWS_AA) {
-				lightSamples = 4;
-			}
-			else {
-				lightSamples = 1;
+			if (SOFT_SHADOWS_AA || SOFT_SHADOWS) {
+				a = Vector(.5, 0, 0);
+				b = Vector(0, .5, 0);
+				lightSamples = 16;
 			}
 			
 			for (int i = 0; i < lightSamples; i++) {
@@ -534,11 +534,16 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 				Color lightSampleColor = Color(.0f, .0f, .0f);
 
 				if (SOFT_SHADOWS_AA) {
-					Vector a = Vector(1, 0, 0);
-					Vector b = Vector(0, 1, 0);
 					double random1 = (double) rand() / (RAND_MAX);
 					double random2 = (double) rand() / (RAND_MAX);
 					Vector randomVector = scene->getLight(j)->position + a * random1 + b * random2;
+					l = randomVector - hitPoint;
+				}
+				else if (SOFT_SHADOWS) {
+					int areaLightSide = (int)sqrt(lightSamples);
+					int ksi2 = i / areaLightSide;
+					int ksi1 = i - (ksi2 * areaLightSide);
+					Vector randomVector = scene->getLight(j)->position + a * ksi1 * (1.0f / (areaLightSide - 1.0f)) + b * ksi2 * (1.0f / (areaLightSide - 1.0f));
 					l = randomVector - hitPoint;
 				}
 				else {
