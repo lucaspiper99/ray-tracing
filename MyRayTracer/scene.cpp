@@ -18,12 +18,14 @@ Triangle::Triangle(Vector& P0, Vector& P1, Vector& P2)
 
 	//YOUR CODE to Calculate the Min and Max for bounding box
 
-	float xMin = min({ P0.x, P1.x, P2.x });
-	float yMin = min({ P0.y, P1.y, P2.y });
-	float zMin = min({ P0.z, P1.z, P2.z });
-	float xMax = max({ P0.x, P1.x, P2.x });
-	float yMax = max({ P0.y, P1.y, P2.y });
-	float zMax = max({ P0.z, P1.z, P2.z });
+	float xMin = MIN3(P0.x, P1.x, P2.x);
+	float yMin = MIN3(P0.y, P1.y, P2.y);
+	float zMin = MIN3(P0.z, P1.z, P2.z);
+
+	float xMax = MAX3(P0.x, P1.x, P2.x);
+	float yMax = MAX3(P0.y, P1.y, P2.y);
+	float zMax = MAX3(P0.z, P1.z, P2.z);
+
 	Min = Vector(xMin, yMin, zMin);
 	Max = Vector(xMax, yMax, zMax);
 
@@ -135,14 +137,12 @@ AABB Sphere::GetBoundingBox() {
 	Vector a_min = center;
 	Vector a_max = center;
 
-	a_min.x -= radius;
-	a_min.y -= radius;
-	a_min.z -= radius;
+	a_min -= radius;
+	a_max += radius;
 
-	a_max.x += radius;
-	a_max.y += radius;
-	a_max.z += radius;
-	
+	a_min -= EPSILON;
+	a_max += EPSILON;
+
 	return(AABB(a_min, a_max));
 }
 
