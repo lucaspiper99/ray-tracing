@@ -25,7 +25,7 @@
 #include "macros.h"
 
 //Enable OpenGL drawing.  
-bool drawModeEnabled = true;
+bool drawModeEnabled = false;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 
@@ -474,22 +474,37 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 	float t1, t2, tClosest;
 	int closestObjIdx;
-	bool rayIntersepts = false;
 
-	for (int i = 0; i < scene->getNumObjects(); i++)
-	{
-		if (scene->getObject(i)->intercepts(ray, t1)) {
-			if (rayIntersepts) {
-				if (t1 < tClosest) {
+	Object* closestObj = nullptr;
+	bool rayIntersepts = false;
+	Vector hitPoint;
+
+	/* With Acceleration Structure */
+	if (Accel_Struct == GRID_ACC) {
+		rayIntersepts = grid_ptr->Traverse(ray, &closestObj, hitPoint);
+	}
+
+	/* No Acceleration Structure */
+	else {
+		for (int i = 0; i < scene->getNumObjects(); i++)
+		{
+			if (scene->getObject(i)->intercepts(ray, t1)) {
+				if (rayIntersepts) {
+					if (t1 < tClosest) {
+						closestObjIdx = i;
+						tClosest = t1;
+					}
+				}
+				else {
 					closestObjIdx = i;
 					tClosest = t1;
+					rayIntersepts = true;
 				}
 			}
-			else {
-				closestObjIdx = i;
-				tClosest = t1;
-				rayIntersepts = true;
-			}
+		}
+		if (rayIntersepts) {
+			hitPoint = ray.origin + (ray.direction * tClosest);
+			closestObj = scene->getObject(closestObjIdx);
 		}
 	}
 
@@ -506,12 +521,11 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 	}
 	else {
 
-		diffColor = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffColor();
-		specColor = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecColor();
+		diffColor = closestObj->GetMaterial()->GetDiffColor();
+		specColor = closestObj->GetMaterial()->GetSpecColor();
 		Color resultingColor = Color(.0f, .0f, .0f);
 
-		Vector hitPoint = ray.origin + (ray.direction * tClosest);
-		Vector normal = scene->getObject(closestObjIdx)->getNormal(hitPoint);
+		Vector normal = closestObj->getNormal(hitPoint);
 
 		bool isInsideObject = normal * ray.direction > 0;
 		normal = isInsideObject ? normal * -1.0f : normal;
@@ -568,28 +582,36 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 					Ray shadowFeeler = Ray(hitPoint + bias, l);
 
-					int k = 0;
-					while (!inShadow)
-					{
-						if (k >= scene->getNumObjects()) break;
+					/* With Acceleration Structure */
+					if (Accel_Struct == GRID_ACC) {
+						inShadow = grid_ptr->Traverse(shadowFeeler);
+					}
 
-						if (scene->getObject(k)->intercepts(shadowFeeler, t2)) {
-							if (t2 < lightDistance)  // check if the shadow is being casted by an object in front of the light source
-							{
-								inShadow = true;
-								break;
+					/* No Acceleration Structure */
+					else {
+						int k = 0;
+						while (!inShadow)
+						{
+							if (k >= scene->getNumObjects()) break;
+
+							if (scene->getObject(k)->intercepts(shadowFeeler, t2)) {
+								if (t2 < lightDistance)  // check if the shadow is being casted by an object in front of the light source
+								{
+									inShadow = true;
+									break;
+								}
 							}
+							k++;
 						}
-						k++;
 					}
 
 					if (!inShadow) {
 					
 						Color lightColor = scene->getLight(j)->color;
 
-						float shine = scene->getObject(closestObjIdx)->GetMaterial()->GetShine();
-						float kd = scene->getObject(closestObjIdx)->GetMaterial()->GetDiffuse();
-						float ks = scene->getObject(closestObjIdx)->GetMaterial()->GetSpecular();
+						float shine = closestObj->GetMaterial()->GetShine();
+						float kd = closestObj->GetMaterial()->GetDiffuse();
+						float ks = closestObj->GetMaterial()->GetSpecular();
 
 						Vector halfwayVector = (l + v).normalize();
 
@@ -629,9 +651,9 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			Vector refletedRayDirection = (normal * (2 * (v * normal)) - v).normalize();
 			Ray reflectedRay = Ray(hitPoint + bias, refletedRayDirection);
 
-			float reflection = scene->getObject(closestObjIdx)->GetMaterial()->GetReflection();
-			float T = scene->getObject(closestObjIdx)->GetMaterial()->GetTransmittance();
-			float ior_2 = isInsideObject ? 1.0f : scene->getObject(closestObjIdx)->GetMaterial()->GetRefrIndex(); 
+			float reflection = closestObj->GetMaterial()->GetReflection();
+			float T = closestObj->GetMaterial()->GetTransmittance();
+			float ior_2 = isInsideObject ? 1.0f : closestObj->GetMaterial()->GetRefrIndex();
 
 			Vector vt = (normal * (v * normal)) - v;
 			float sinI, cosI, sinT, cosT, kr;
