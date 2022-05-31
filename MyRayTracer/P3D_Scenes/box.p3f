@@ -1,0 +1,20 @@
+accel 0
+spp 0
+#background color azulada
+bclr 0.678 0.761 0.953
+env skybox
+v
+from -4 0.7 4
+at 4 0 -4
+up 0 1 0
+angle 30
+hither 0.01
+resolution 512 512
+aperture 0
+focal 1
+l 0.5 3 4 1 1 1
+l 6 4 4 1 1 1
+l -3 5 2 1 1 1
+# copper metal (no diffuse and tint the specular)    
+f 1 1 1 0.0 0.957 0.639 0.536 1 190.0827 0 1   
+box -0.35 -0.35 -0.35 0.35 0.35 0.35

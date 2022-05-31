@@ -163,8 +163,8 @@ bool aaBox::intercepts(Ray& ray, float& t)
 	double oz = ray.origin.z;
 
 	double dx = ray.direction.x;
-	double dy = ray.origin.y;
-	double dz = ray.origin.z;
+	double dy = ray.direction.y;
+	double dz = ray.direction.z;
 
 	double tx_min, ty_min, tz_min;
 	double tx_max, ty_max, tz_max;
@@ -214,7 +214,7 @@ bool aaBox::intercepts(Ray& ray, float& t)
 	}
 	if (tz_min > tE) {
 		tE = tz_min;
-		face_in = (c >= 0) ? Vector(0, 0, -1) : Vector(0, 0, 1);
+		face_in = (c >= 0.0) ? Vector(0, 0, -1) : Vector(0, 0, 1);
 	}
 
 	/* FIND SMALLEST LEAVING T VALUE*/
@@ -228,7 +228,7 @@ bool aaBox::intercepts(Ray& ray, float& t)
 	}
 	if (tz_max < tL) {
 		tL = tz_max;
-		face_out = (c >= 0) ? Vector(0, 0, 1) : Vector(0, 0, -1);
+		face_out = (c >= 0.0) ? Vector(0, 0, 1) : Vector(0, 0, -1);
 	}
 
 	/* Condition to HIT */
