@@ -34,7 +34,7 @@ bool SOFT_SHADOWS = false;
 bool SOFT_SHADOWS_AA = false;
 bool DOF = false;
 
-#define ANTIALIASING_GRID 4
+#define SPP 16.0f
 
 // EXTRA
 bool SOFT_SHADOWS_JITTERING = false;
@@ -564,11 +564,11 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 					l = randomVector - hitPoint;
 				}
 				else if (SOFT_SHADOWS_JITTERING) {
-					int p = floor<int>(rand() * ANTIALIASING_GRID / (RAND_MAX));
-					int q = floor<int>(rand() * ANTIALIASING_GRID / (RAND_MAX));
+					int p = floor<int>(rand() * sqrt(SPP) / (RAND_MAX));
+					int q = floor<int>(rand() * sqrt(SPP) / (RAND_MAX));
 					double random1 = (double)rand() / (RAND_MAX);
 					double random2 = (double)rand() / (RAND_MAX);
-					Vector randomVector = scene->getLight(j)->position + a * ((p + random1) / ANTIALIASING_GRID) + b * ((q + random2) / ANTIALIASING_GRID);
+					Vector randomVector = scene->getLight(j)->position + a * ((p + random1) / sqrt(SPP)) + b * ((q + random2) / sqrt(SPP));
 					l = randomVector - hitPoint;
 				}
 				else {
@@ -648,7 +648,18 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 		}
 		else {
 
-			Vector refletedRayDirection = (normal * (2 * (v * normal)) - v).normalize();
+			Vector refletedRayDirection = (normal * (2 * (v * normal)) - v);
+			
+			if (FUZZY_REFLECTIONS) {
+				float roughness = .3f;
+				Vector rand_in_unit_sphere = Vector((float)rand() / (RAND_MAX), (float)rand() / (RAND_MAX), (float)rand() / (RAND_MAX));
+				rand_in_unit_sphere = rand_in_unit_sphere.normalize();
+				refletedRayDirection = (refletedRayDirection + rand_in_unit_sphere * roughness).normalize();
+			}
+			else {
+				refletedRayDirection = refletedRayDirection.normalize();
+			}
+
 			Ray reflectedRay = Ray(hitPoint + bias, refletedRayDirection);
 
 			float reflection = closestObj->GetMaterial()->GetReflection();
@@ -711,20 +722,20 @@ void renderScene()
 			
 			/* ANTI-ALIASING */
 			if (ANTIALIASING) {
-				for (float i = 0; i < ANTIALIASING_GRID; i++) {
-					for (float j = 0; j < ANTIALIASING_GRID; j++) {
+				for (float i = 0; i < (int)sqrt(SPP); i++) {
+					for (float j = 0; j < (int)sqrt(SPP); j++) {
 
 						double ksi1 = (double) rand() / (RAND_MAX);
 						double ksi2 = (double) rand() / (RAND_MAX);
 
 						//viewport coordinates
 						
-						pixel.x = x + (i + ksi1) / ANTIALIASING_GRID;
-						pixel.y = y + (j + ksi2) / ANTIALIASING_GRID;
+						pixel.x = x + (i + ksi1) / sqrt(SPP);
+						pixel.y = y + (j + ksi2) / sqrt(SPP);
 
 						Ray ray = scene->GetCamera()->PrimaryRay(pixel);   //function from camera.h
 
-						color += rayTracing(ray, 1, 1.0).clamp() * (float) (1 / pow(ANTIALIASING_GRID, 2));
+						color += rayTracing(ray, 1, 1.0).clamp() * (float) (1 / SPP);
 					}
 				}
 			}
