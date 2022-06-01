@@ -480,9 +480,14 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 	bool rayIntersepts = false;
 	Vector hitPoint;
 
-	/* With Acceleration Structure */
+	/* Uniform Grid Acceleration */
 	if (Accel_Struct == GRID_ACC) {
 		rayIntersepts = grid_ptr->Traverse(ray, &closestObj, hitPoint);
+	}
+
+	/* BVH Acceleration */
+	else if (Accel_Struct == BVH_ACC) {
+		rayIntersepts = bvh_ptr->Traverse(ray, &closestObj, hitPoint);
 	}
 
 	/* No Acceleration Structure */
@@ -583,9 +588,14 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 					Ray shadowFeeler = Ray(hitPoint + bias, l);
 
-					/* With Acceleration Structure */
+					/* Uniform Grid Acceleration */
 					if (Accel_Struct == GRID_ACC) {
 						inShadow = grid_ptr->Traverse(shadowFeeler);
+					}
+
+					/* BVH Acceleration */
+					else if (Accel_Struct == BVH_ACC) {
+						inShadow = bvh_ptr->Traverse(shadowFeeler);
 					}
 
 					/* No Acceleration Structure */
