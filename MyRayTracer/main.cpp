@@ -32,9 +32,10 @@ bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 bool ANTIALIASING = false;
 bool SOFT_SHADOWS = false;
 bool SOFT_SHADOWS_AA = false;
-bool DOF = false;
+bool DOF = true;
 
 #define ANTIALIASING_GRID 4
+#define DOF_SAMPLES 64
 
 // EXTRA
 bool SOFT_SHADOWS_JITTERING = false;
@@ -664,7 +665,25 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 	}
 }
 
+Color dofRayTracing(const Vector& pixel) {
+	Color color = Color(.0f, .0f, .0f);
 
+	for (int i = 0; i < DOF_SAMPLES; i++) {
+		Vector lens_sample = rnd_unit_disk() * scene->GetCamera()->GetAperture();
+		
+		try
+		{
+			Ray ray = scene->GetCamera()->PrimaryRay(lens_sample, pixel);
+			color += rayTracing(ray, 1, 1.0).clamp() * (float)(1.0 / DOF_SAMPLES);
+		}
+		catch (const std::invalid_argument& e)
+		{
+			i--;
+		}
+	}
+
+	return color;
+}
 
 // Render function by primary ray casting from the eye towards the scene's objects
 
@@ -679,6 +698,7 @@ void renderScene()
 		scene->GetCamera()->SetEye(Vector(camX, camY, camZ));  //Camera motion
 	}
 
+
 	for (int y = 0; y < RES_Y; y++)
 	{
 		for (int x = 0; x < RES_X; x++)
@@ -692,17 +712,22 @@ void renderScene()
 				for (float i = 0; i < ANTIALIASING_GRID; i++) {
 					for (float j = 0; j < ANTIALIASING_GRID; j++) {
 
-						double ksi1 = (double) rand() / (RAND_MAX);
-						double ksi2 = (double) rand() / (RAND_MAX);
+						double ksi1 = (double)rand() / (RAND_MAX);
+						double ksi2 = (double)rand() / (RAND_MAX);
 
 						//viewport coordinates
-						
+
 						pixel.x = x + (i + ksi1) / ANTIALIASING_GRID;
 						pixel.y = y + (j + ksi2) / ANTIALIASING_GRID;
 
-						Ray ray = scene->GetCamera()->PrimaryRay(pixel);   //function from camera.h
+						if (DOF && scene->GetCamera()->GetAperture() > 0)
+							color += dofRayTracing(pixel).clamp() * (float)(1 / pow(ANTIALIASING_GRID, 2));
 
-						color += rayTracing(ray, 1, 1.0).clamp() * (float) (1 / pow(ANTIALIASING_GRID, 2));
+						else {
+							Ray ray = scene->GetCamera()->PrimaryRay(pixel);   //function from camera.h
+							color += rayTracing(ray, 1, 1.0).clamp() * (float)(1 / pow(ANTIALIASING_GRID, 2));
+
+						}
 					}
 				}
 			}
@@ -710,8 +735,13 @@ void renderScene()
 				pixel.x = x + 0.5f; 
 				pixel.y = y + 0.5f; 
 
-				Ray ray = scene->GetCamera()->PrimaryRay(pixel);
-				color = rayTracing(ray, 1, 1.0).clamp(); // W/O ANTI-ALIASING
+				if (DOF && scene->GetCamera()->GetAperture() > 0)
+					color = dofRayTracing(pixel).clamp();
+
+				else {
+					Ray ray = scene->GetCamera()->PrimaryRay(pixel);
+					color = rayTracing(ray, 1, 1.0).clamp(); // W/O ANTI-ALIASING
+				}
 			}
 
 
