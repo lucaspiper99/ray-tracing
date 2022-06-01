@@ -35,7 +35,6 @@ bool SOFT_SHADOWS_AA = false;
 bool DOF = true;
 
 #define SPP 16.0f
-#define ANTIALIASING_GRID 4
 #define DOF_SAMPLES 4
 
 // EXTRA
