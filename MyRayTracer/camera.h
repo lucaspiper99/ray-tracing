@@ -79,10 +79,27 @@ public:
 	}
 
 	Ray PrimaryRay(const Vector& lens_sample, const Vector& pixel_sample) // DOF: Rays cast from  a thin lens sample to a pixel sample
-	{
+	{	
+		//origin calculation
+		Vector eye_offset = eye + u * lens_sample.x + v * lens_sample.y;
 		
-		Vector ray_dir;
-		Vector eye_offset;
+		// passes throw middle of pixel in camera coordinates
+		Vector p = Vector(w * ((std::floor(pixel_sample.x) + 0.5) / res_x - 0.5), h * ((std::floor(pixel_sample.y) + 0.5)/ res_y - 0.5), plane_dist); 
+		
+		//intersection of vector(ps - lens_sample) in the viewplane
+		Vector ps = Vector((w * (pixel_sample.x / res_x - 0.5) * focal_ratio) - lens_sample.x, (h * (pixel_sample.y / res_y - 0.5) * focal_ratio) - lens_sample.y, plane_dist * focal_ratio) * (float)(1.0 / focal_ratio); 
+		Vector dist = ps - p;
+		
+		//if ray doesn't pass through pixel disregard
+		if (dist.x > 0.5 || dist.y > 0.5) {
+			std::cout << dist.x << dist.y << std::endl;
+			throw std::invalid_argument("");
+		}
+
+		
+		//direction calculation
+		Vector ray_dir = u * ps.x + v * ps.y - n * ps.z;
+		ray_dir = ray_dir.normalize();
 
 		return Ray(eye_offset, ray_dir);
 	}
