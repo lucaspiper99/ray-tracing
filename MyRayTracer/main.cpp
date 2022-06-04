@@ -24,17 +24,18 @@
 #include "maths.h"
 #include "macros.h"
 
-//Enable OpenGL drawing.  
-bool drawModeEnabled = true;
+//Enable OpenGL drawing
+bool drawModeEnabled = false;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 
 bool ANTIALIASING = false;
 bool SOFT_SHADOWS = false;
 bool SOFT_SHADOWS_AA = false;
-bool DOF = true;
+bool DOF = false;
 
-#define SPP 16.0f
+#define SPP scene->GetSamplesPerPixel()
+//#define SPP 256.0f
 #define DOF_SAMPLES 4
 
 // EXTRA
@@ -695,12 +696,12 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 				kr = R0 + (1.0f - R0) * pow(1.0f - cos, 5);
 				
 				// reflection
-				if (reflection > 0) resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * specColor * kr;
+				if (reflection > 0) resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * kr;  // without specular color
 
 				// refraction (dieletric material and non-total reflection)
 				Vector rt = vt.normalize() * sinT - normal * cosT;
 				Ray transmittedRay = Ray(hitPoint - bias, rt);
-				resultingColor += rayTracing(transmittedRay, depth + 1, ior_2) * diffColor * (1 - kr);
+				resultingColor += rayTracing(transmittedRay, depth + 1, ior_2) * (1 - kr);  // without diffuse
 			}
 
 			return resultingColor;
@@ -714,15 +715,9 @@ Color dofRayTracing(const Vector& pixel) {
 	for (int i = 0; i < DOF_SAMPLES; i++) {
 		Vector lens_sample = rnd_unit_disk() * scene->GetCamera()->GetAperture();
 		
-		try
-		{
-			Ray ray = scene->GetCamera()->PrimaryRay(lens_sample, pixel);
-			color += rayTracing(ray, 1, 1.0).clamp() * (float)(1.0 / DOF_SAMPLES);
-		}
-		catch (const std::invalid_argument& e)
-		{
-			i--;
-		}
+		Ray ray = scene->GetCamera()->PrimaryRay(lens_sample, pixel);
+		color += rayTracing(ray, 1, 1.0).clamp() * (float)(1.0 / DOF_SAMPLES);
+		
 	}
 
 	return color;

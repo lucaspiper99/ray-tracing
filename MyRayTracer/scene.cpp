@@ -126,7 +126,6 @@ bool Sphere::intercepts(Ray& r, float& t )
 	}
 }
 
-
 Vector Sphere::getNormal( Vector point )
 {
 	Vector normal = point - center;
@@ -144,6 +143,157 @@ AABB Sphere::GetBoundingBox() {
 	a_max += EPSILON;
 
 	return(AABB(a_min, a_max));
+}
+
+bool AAC::intercepts(Ray& r, float& t)
+{
+
+	bool x = base.x != apex.x;  // Aligned with axis XX
+	bool y = base.y != apex.y;  // Aligned with axis YY
+	bool z = base.z != apex.z;  // Aligned with axis ZZ
+
+	if ((x || y) && (x || z) && (y || z)) return false;  // Cylinder/Cone not axis aligned
+
+	Vector d = r.direction;
+	Vector o = r.origin;
+
+	if (base_radius == apex_radius)  // Cylinder
+	{
+		float a = x ? pow(d.z, 2) + pow(d.y, 2) : y ? pow(d.x, 2) + pow(d.z, 2) : pow(d.x, 2) + pow(d.y, 2);
+		float b = x ? 2 * (d.z * (o.z - base.z) + d.y * (o.y - base.y)) : y ? 2 * (d.x * (o.x - base.x) + d.z * (o.z - base.z)) : 2 * (d.x * (o.x - base.x) + d.y * (o.y - base.y));
+		float c = x ? pow(o.z - base.z, 2) + pow(o.y - base.y, 2) - pow(base_radius, 2) : y ? pow(o.x - base.x, 2) + pow(o.z - base.z, 2) - pow(base_radius, 2) : pow(o.x - base.x, 2) + pow(o.y - base.y, 2) - pow(base_radius, 2);
+
+		float discriminant = pow(b, 2) - 4 * a * c;
+
+		if (discriminant <= 0) return false;  // No intersection
+
+		float sol1 = (-1.0f * b - sqrt(discriminant)) / (2 * a);
+		float sol2 = (-1.0f * b + sqrt(discriminant)) / (2 * a);
+
+		if (sol2 < 0) return false;  // Cylinder behind ray origin
+
+
+		// ----------------------------------------------------------------------------------------------------------------------------
+
+
+		// Minimum and maximum coordenates along axis (coordenates of base/apex planes)
+		float coordMin = x ? MIN(base.x, apex.x) : y ? MIN(base.y, apex.y) : MIN(base.z, apex.z);
+		float coordMax = x ? MAX(base.x, apex.x) : y ? MAX(base.y, apex.y) : MAX(base.z, apex.z);
+
+		// Coordenates of both intersection points along axis
+		float coord1 = x ? (o + d * sol1).x : y ? (o + d * sol1).y : (o + d * sol1).z;
+		float coord2 = x ? (o + d * sol2).x : y ? (o + d * sol2).y : (o + d * sol2).z;
+
+		// Swap base and apex in order to ensure that base.x < apex.x, base.y < apex.y or base.z < apex.z
+		if (coordMin != (x ? base.x : y ? base.y : base.z)) {
+			Vector temp = base;
+			base = apex;
+			apex = temp;
+		}
+
+		bool baseIntersection = false, apexIntersection = false, sideIntersection = false;
+
+		if (sol1 < 0)  // Ray origin inside infinite cylinder
+		{
+			float originCoord = x ? o.x : y ? o.y : o.z;
+			bool isInside = (originCoord > coordMin) && (originCoord < coordMax);
+
+			if (isInside && (coord2 < coordMin)) baseIntersection = true;
+			if (!isInside && (coord2 > coordMin) && ((o - base).length() < (o - apex).length())) baseIntersection = true;
+
+			if (isInside && (coord2 > coordMax)) apexIntersection = true;
+			if (!isInside && (coord2 < coordMax) && ((o - base).length() > (o - apex).length())) apexIntersection = true;
+
+			if (isInside && (coord2 > coordMin) && (coord2 < coordMax)) {
+				sideIntersection = true;
+				t = sol2;
+			}
+			 
+			return false;
+		}
+		else if (sol1 > 0)  // Cylinder in front of ray origin
+		{
+			// Intersection above and below base/apex planes
+			if (coord1 < coordMin && coord2 < coordMin) return false;
+			if (coord1 > coordMax && coord2 > coordMax) return false;
+
+			t = sol1;
+
+			if (coord1 > coordMin && coord1 < coordMax) sideIntersection = true;
+			if (coord1 < coordMin && coord2 > coordMin) baseIntersection = true;
+			if (coord1 > coordMax && coord2 < coordMax) apexIntersection = true;
+		}
+
+		// Intersection with base plane
+		if (baseIntersection) {
+			normal = (base - apex).normalize();
+			t = ((base - r.origin) * normal) / (normal * r.direction);
+			return true;
+		}
+
+		// Intersection with apex plane
+		if (apexIntersection) {
+			normal = (apex - base).normalize();
+			t = ((apex - r.origin) * normal) / (normal * r.direction);
+			return true;
+		}
+
+		// Intersection with side
+		if (sideIntersection) {
+			Vector axis = apex - base;
+			Vector closestOnAxis = base + axis * ((((o + d * t) * axis) - (base * axis)) / (axis * axis));
+			normal = ((o + d * t) - closestOnAxis).normalize();
+			return true;
+		}
+	}
+
+	else  // Cone
+	{
+		return false;
+	}
+	return false;
+}
+
+Vector AAC::getNormal(Vector point)
+{
+	return normal;
+
+	//Vector d = apex - base;
+	//Vector closestOnAxis = base + d * (((point * d) - (base * d)) / (d * d));
+	//Vector cylinderNormal = (point - closestOnAxis).normalize();
+
+	//if (base_radius == apex_radius)  // Cylinder
+	//{
+	//	return cylinderNormal;
+	//}
+	//else  // Cone
+	//{
+	//	Vector toApex = (apex - point).normalize();
+	//	Vector coneNormal = ((toApex % cylinderNormal) % toApex).normalize();
+	//	return coneNormal;
+	//}
+}
+
+AABB AAC::GetBoundingBox()
+{
+	float xMin, yMin, zMin, xMax, yMax, zMax;
+
+	xMin = (base.x == apex.x) ? base.x - MAX(base_radius, apex_radius) : MIN(base.x, apex.x);
+	yMin = (base.y == apex.y) ? base.y - MAX(base_radius, apex_radius) : MIN(base.y, apex.y);
+	zMin = (base.z == apex.z) ? base.z - MAX(base_radius, apex_radius) : MIN(base.z, apex.z);
+
+	xMax = (base.x == apex.x) ? base.x + MAX(base_radius, apex_radius) : MAX(base.x, apex.x);
+	yMax = (base.y == apex.y) ? base.y + MAX(base_radius, apex_radius) : MAX(base.y, apex.y);
+	zMax = (base.z == apex.z) ? base.z + MAX(base_radius, apex_radius) : MAX(base.z, apex.z);
+
+	Vector min = Vector(xMin, yMin, zMin);
+	Vector max = Vector(xMax, yMax, zMax);
+
+	min -= EPSILON;
+	max += EPSILON;
+
+	return AABB(min, max);
+
 }
 
 aaBox::aaBox(Vector& minPoint, Vector& maxPoint) //Axis aligned Box: another geometric object
@@ -497,6 +647,19 @@ bool Scene::load_p3f(const char *name)
 	    if (material) sphere->SetMaterial(material);
         this->addObject( (Object*) sphere);
       }
+
+	  else if (cmd == "c")    // Cylinder or Cone
+	  {
+		  Vector base, apex;
+		  float base_radius, apex_radius;
+		  AAC* cc;
+
+		  file >> base >> base_radius;
+		  file >> apex >> apex_radius;
+		  cc = new AAC(base, apex, base_radius, apex_radius);
+		  if (material) cc->SetMaterial(material);
+		  this->addObject((Object*)cc);
+	  }
 
 	  else if (cmd == "box")    //axis aligned box
 	  {

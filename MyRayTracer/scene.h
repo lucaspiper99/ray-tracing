@@ -124,6 +124,22 @@ private:
 	float radius, SqRadius;
 };
 
+class AAC : public Object
+{
+public:
+
+	AAC(Vector& a_base, Vector& a_apex, float a_base_radius, float a_apex_radius) :
+		base(a_base), apex(a_apex), base_radius(a_base_radius), apex_radius(a_apex_radius) {};
+
+	bool intercepts(Ray& r, float& t);
+	Vector getNormal(Vector point);
+	AABB GetBoundingBox(void);
+
+private:
+	Vector base, apex, normal;
+	float base_radius, apex_radius;
+};
+
 class aaBox : public Object   //Axis aligned box: another geometric object
 {
 public:
