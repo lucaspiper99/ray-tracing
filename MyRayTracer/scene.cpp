@@ -145,22 +145,6 @@ AABB Sphere::GetBoundingBox() {
 	return(AABB(a_min, a_max));
 }
 
-//AAC::AAC(Vector& a_base, Vector& a_apex, float a_base_radius, float a_apex_radius) {
-//
-//	float coordMin = base.x != apex.x ? MIN(base.x, apex.x) : base.y != apex.y ? MIN(base.y, apex.y) : MIN(base.z, apex.z);
-//	float coordMax = base.x != apex.x ? MAX(base.x, apex.x) : base.y != apex.y ? MAX(base.y, apex.y) : MAX(base.z, apex.z);
-//
-//	if (base_radius == apex_radius) {
-//		// Swap base and apex in order to ensure that base.x < apex.x, base.y < apex.y or base.z < apex.z
-//		if (coordMin != (base.x != apex.x ? base.x : base.y != apex.y ? base.y : base.z)) {
-//			Vector temp = base;
-//			base = apex;
-//			apex = temp;
-//		}
-//	}
-//	
-//}
-
 bool AAC::intercepts(Ray& r, float& t)
 {
 
@@ -261,7 +245,6 @@ bool AAC::intercepts(Ray& r, float& t)
 
 	else if (apex_radius == 0)  // Cone
 	{
-
 		// Minimum and maximum coordenates along axis (coordenates of base/apex planes)
 		float coordMin = x ? MIN(base.x, apex.x) : y ? MIN(base.y, apex.y) : MIN(base.z, apex.z);
 		float coordMax = x ? MAX(base.x, apex.x) : y ? MAX(base.y, apex.y) : MAX(base.z, apex.z);
@@ -298,8 +281,6 @@ bool AAC::intercepts(Ray& r, float& t)
 
 		if (sol1 < 0)  // Ray origin inside infinite cone
 		{
-			
-
 			if (isInside) {
 				if (sol2 < 0 || c2 < 0) baseIntersection = true;
 				if (c2 > 0) sideIntersection = true;  // t = (c2 < height) ? sol2 : sol1; 
@@ -347,20 +328,20 @@ Vector AAC::getNormal(Vector point)
 {
 	return normal;
 
-	//Vector d = apex - base;
-	//Vector closestOnAxis = base + d * (((point * d) - (base * d)) / (d * d));
-	//Vector cylinderNormal = (point - closestOnAxis).normalize();
+	/*Vector d = apex - base;
+	Vector closestOnAxis = base + d * (((point * d) - (base * d)) / (d * d));
+	Vector cylinderNormal = (point - closestOnAxis).normalize();
 
-	//if (base_radius == apex_radius)  // Cylinder
-	//{
-	//	return cylinderNormal;
-	//}
-	//else  // Cone
-	//{
-	//	Vector toApex = (apex - point).normalize();
-	//	Vector coneNormal = ((toApex % cylinderNormal) % toApex).normalize();
-	//	return coneNormal;
-	//}
+	if (base_radius == apex_radius)  // Cylinder
+	{
+		return cylinderNormal;
+	}
+	else  // Cone
+	{
+		Vector toApex = (apex - point).normalize();
+		Vector coneNormal = ((toApex % cylinderNormal) % toApex).normalize();
+		return coneNormal;
+	}*/
 }
 
 AABB AAC::GetBoundingBox()
