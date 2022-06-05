@@ -25,7 +25,7 @@
 #include "macros.h"
 
 //Enable OpenGL drawing
-bool drawModeEnabled = true;
+bool drawModeEnabled = false;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 
@@ -473,7 +473,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 	// INTERSECTIONS
 	// -----------------------------------------------------------------------------
 
-	float t1, t2, tClosest;
+	float t1, t2, tClosest=FLT_MAX;
 	int closestObjIdx;
 
 	Object* closestObj = nullptr;
@@ -494,16 +494,10 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 		for (int i = 0; i < scene->getNumObjects(); i++)
 		{
 			if (scene->getObject(i)->intercepts(ray, t1)) {
-				if (rayIntersepts) {
-					if (t1 < tClosest) {
-						closestObjIdx = i;
-						tClosest = t1;
-					}
-				}
-				else {
+				rayIntersepts = true;
+				if (t1 < tClosest) {
 					closestObjIdx = i;
 					tClosest = t1;
-					rayIntersepts = true;
 				}
 			}
 		}

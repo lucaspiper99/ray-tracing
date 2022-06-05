@@ -146,6 +146,7 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 			float t1, t2;
 			bool hit1=false, hit2;
 			float tmin = FLT_MAX;  //contains the closest primitive intersection
+			Object* closestObj = NULL;
 
 			BVHNode* currentNode = nodes[0];
 
@@ -193,7 +194,7 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 						hit1 = objects[i]->intercepts(ray, t1);
 						if (hit1 && tmin > t1) {
 							tmin = t1;
-							*hit_obj = objects[i];
+							closestObj = objects[i];
 						}
 					}
 				}
@@ -203,7 +204,7 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 				while (!hit_stack.empty()) {
 					StackItem item = hit_stack.top();
 					hit_stack.pop();
-					if (item.t < tmin) {
+					if (item.t < tmin || item.ptr->getAABB().isInside(ray.origin)) {
 						currentNode = item.ptr;
 						popped_item = true;
 						break;
@@ -214,19 +215,18 @@ bool BVH::Traverse(Ray& ray, Object** hit_obj, Vector& hit_point) {
 				if (hit_stack.empty() && popped_item == false) {
 					if (tmin == FLT_MAX) return(false);
 					else {
+						*hit_obj = closestObj;
 						hit_point = ray.origin + (ray.direction * tmin);
 						return(true);
 					}
 				}
 			}
 
-			
 			return(false);
 	}
 
 bool BVH::Traverse(Ray& ray) {  //shadow ray with length
 
-			// FIXME : Not used?
 			double length = ray.direction.length(); //distance between light and intersection point
 			ray.direction.normalize();
 
@@ -271,7 +271,7 @@ bool BVH::Traverse(Ray& ray) {  //shadow ray with length
 					// Check intersection with every object in the current node
 					for (int i = left_index; i < left_index + n_obj; i++) {
 						hit1 = objects[i]->intercepts(ray, tmp);
-						if (hit1) return true;
+						if (hit1 && tmp < length) return true;
 					}
 				}
 
