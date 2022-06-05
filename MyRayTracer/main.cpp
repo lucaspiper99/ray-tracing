@@ -25,20 +25,19 @@
 #include "macros.h"
 
 //Enable OpenGL drawing
-bool drawModeEnabled = false;
+bool drawModeEnabled = true;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 
+#define SPP (float)scene->GetSamplesPerPixel()
+#define DOF_SAMPLES 4
+
+bool SKYBOX = false;
 bool ANTIALIASING = false;
 bool SOFT_SHADOWS = false;
 bool SOFT_SHADOWS_AA = false;
 bool DOF = false;
 
-#define SPP scene->GetSamplesPerPixel()
-//#define SPP 256.0f
-#define DOF_SAMPLES 4
-
-// EXTRA
 bool SOFT_SHADOWS_JITTERING = false;
 bool MOTION_BLUR = false;
 bool FUZZY_REFLECTIONS = false;
@@ -481,18 +480,17 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 	bool rayIntersepts = false;
 	Vector hitPoint;
 
-	/* Uniform Grid Acceleration */
-	if (Accel_Struct == GRID_ACC) {
+	
+	if (Accel_Struct == GRID_ACC)  // Uniform Grid Acceleration
+	{
 		rayIntersepts = grid_ptr->Traverse(ray, &closestObj, hitPoint);
 	}
-
-	/* BVH Acceleration */
-	else if (Accel_Struct == BVH_ACC) {
+	else if (Accel_Struct == BVH_ACC)  // BVH Acceleration
+	{
 		rayIntersepts = bvh_ptr->Traverse(ray, &closestObj, hitPoint);
 	}
-
-	/* No Acceleration Structure */
-	else {
+	else  // No Acceleration Structure
+	{
 		for (int i = 0; i < scene->getNumObjects(); i++)
 		{
 			if (scene->getObject(i)->intercepts(ray, t1)) {
@@ -524,6 +522,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 	Color diffColor, specColor;
 
 	if (!rayIntersepts) {
+		if (SKYBOX) return scene->GetSkyboxColor(ray);
 		return backgroundColor;
 	}
 	else {
@@ -591,12 +590,12 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 					/* Uniform Grid Acceleration */
 					if (Accel_Struct == GRID_ACC) {
-						inShadow = grid_ptr->Traverse(shadowFeeler);
+						inShadow = grid_ptr->Traverse(Ray(hitPoint + bias, l * lightDistance));
 					}
 
 					/* BVH Acceleration */
 					else if (Accel_Struct == BVH_ACC) {
-						inShadow = bvh_ptr->Traverse(shadowFeeler);
+						inShadow = bvh_ptr->Traverse(Ray(hitPoint + bias, l * lightDistance));
 					}
 
 					/* No Acceleration Structure */
@@ -648,9 +647,6 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 		}
 
-		// return resultingColor;
-
-
 		// -----------------------------------------------------------------------------
 		// REFLECTION AND REFRACTION
 		// -----------------------------------------------------------------------------
@@ -686,7 +682,8 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 			if (sinT > 1 || T == 0) {  // total reflection or non-dieletric material
 
-				if (reflection > 0) resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * specColor * reflection;
+				//if (reflection > 0) resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * specColor * reflection;
+				if (reflection > 0) resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * reflection;
 					
 			}
 			else {

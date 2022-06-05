@@ -145,6 +145,22 @@ AABB Sphere::GetBoundingBox() {
 	return(AABB(a_min, a_max));
 }
 
+//AAC::AAC(Vector& a_base, Vector& a_apex, float a_base_radius, float a_apex_radius) {
+//
+//	float coordMin = base.x != apex.x ? MIN(base.x, apex.x) : base.y != apex.y ? MIN(base.y, apex.y) : MIN(base.z, apex.z);
+//	float coordMax = base.x != apex.x ? MAX(base.x, apex.x) : base.y != apex.y ? MAX(base.y, apex.y) : MAX(base.z, apex.z);
+//
+//	if (base_radius == apex_radius) {
+//		// Swap base and apex in order to ensure that base.x < apex.x, base.y < apex.y or base.z < apex.z
+//		if (coordMin != (base.x != apex.x ? base.x : base.y != apex.y ? base.y : base.z)) {
+//			Vector temp = base;
+//			base = apex;
+//			apex = temp;
+//		}
+//	}
+//	
+//}
+
 bool AAC::intercepts(Ray& r, float& t)
 {
 
@@ -160,21 +176,19 @@ bool AAC::intercepts(Ray& r, float& t)
 	if (base_radius == apex_radius)  // Cylinder
 	{
 		float a = x ? pow(d.z, 2) + pow(d.y, 2) : y ? pow(d.x, 2) + pow(d.z, 2) : pow(d.x, 2) + pow(d.y, 2);
-		float b = x ? 2 * (d.z * (o.z - base.z) + d.y * (o.y - base.y)) : y ? 2 * (d.x * (o.x - base.x) + d.z * (o.z - base.z)) : 2 * (d.x * (o.x - base.x) + d.y * (o.y - base.y));
+		float b = x ? d.z * (o.z - base.z) + d.y * (o.y - base.y) : y ? d.x * (o.x - base.x) + d.z * (o.z - base.z) : d.x * (o.x - base.x) + d.y * (o.y - base.y);
 		float c = x ? pow(o.z - base.z, 2) + pow(o.y - base.y, 2) - pow(base_radius, 2) : y ? pow(o.x - base.x, 2) + pow(o.z - base.z, 2) - pow(base_radius, 2) : pow(o.x - base.x, 2) + pow(o.y - base.y, 2) - pow(base_radius, 2);
 
-		float discriminant = pow(b, 2) - 4 * a * c;
+		float discriminant = pow(b, 2) - a * c;
 
 		if (discriminant <= 0) return false;  // No intersection
 
-		float sol1 = (-1.0f * b - sqrt(discriminant)) / (2 * a);
-		float sol2 = (-1.0f * b + sqrt(discriminant)) / (2 * a);
+		float sol1 = (-1.0f * b - sqrt(discriminant)) / a;
+		float sol2 = (-1.0f * b + sqrt(discriminant)) / a;
 
 		if (sol2 < 0) return false;  // Cylinder behind ray origin
 
-
 		// ----------------------------------------------------------------------------------------------------------------------------
-
 
 		// Minimum and maximum coordenates along axis (coordenates of base/apex planes)
 		float coordMin = x ? MIN(base.x, apex.x) : y ? MIN(base.y, apex.y) : MIN(base.z, apex.z);
@@ -208,8 +222,6 @@ bool AAC::intercepts(Ray& r, float& t)
 				sideIntersection = true;
 				t = sol2;
 			}
-			 
-			return false;
 		}
 		else if (sol1 > 0)  // Cylinder in front of ray origin
 		{
@@ -247,9 +259,86 @@ bool AAC::intercepts(Ray& r, float& t)
 		}
 	}
 
-	else  // Cone
+	else if (apex_radius == 0)  // Cone
 	{
-		return false;
+
+		// Minimum and maximum coordenates along axis (coordenates of base/apex planes)
+		float coordMin = x ? MIN(base.x, apex.x) : y ? MIN(base.y, apex.y) : MIN(base.z, apex.z);
+		float coordMax = x ? MAX(base.x, apex.x) : y ? MAX(base.y, apex.y) : MAX(base.z, apex.z);
+
+		float slope = base_radius / (coordMax - coordMin);
+
+		float a = x ? pow(d.y, 2) + pow(d.z, 2) - slope * pow(d.x, 2) : y ? pow(d.x, 2) + pow(d.z, 2) - slope * pow(d.y, 2) : pow(d.x, 2) + pow(d.y, 2) - slope * pow(d.z, 2);
+		float b = x ? d.y * (o.y - apex.y) + d.z * (o.z - apex.z) - (slope * d.x * (o.x - apex.x)) : y ? d.x * (o.x - apex.x) + d.z * (o.z - apex.z) - (slope * d.y * (o.y - apex.y)) : d.x * (o.x - apex.x) + d.y * (o.y - apex.y) - (slope * d.z * (o.z - apex.z));
+		float c = x ? pow((o.y - apex.y), 2) + pow((o.z - apex.z), 2) - slope * pow((o.x - apex.x), 2) : y ? pow((o.x - apex.x), 2) + pow((o.z - apex.z), 2) - slope * pow((o.y - apex.y), 2) : pow((o.x - apex.x), 2) + pow((o.y - apex.y), 2) - slope * pow((o.z - apex.z), 2);
+
+		float discriminant = pow(b, 2) - a * c;
+
+		if (discriminant <= 0) return false;  // No intersection
+
+		float sol1 = (-1.0f * b - sqrt(discriminant)) / a;
+		float sol2 = (-1.0f * b + sqrt(discriminant)) / a;
+
+		// Coordenates of both intersection points along axis
+		float coord1 = x ? (o + d * sol1).x : y ? (o + d * sol1).y : (o + d * sol1).z;
+		float coord2 = x ? (o + d * sol2).x : y ? (o + d * sol2).y : (o + d * sol2).z;
+
+		Vector axis = (apex - base);
+		float height = axis.length();
+		axis = axis.normalize();
+		float c1 = ((o + d * sol1) - base) * axis;
+		float c2 = ((o + d * sol2) - base) * axis;
+
+		float originCoord = x ? o.x : y ? o.y : o.z;
+		bool isInside = (originCoord > coordMin) && (originCoord < coordMax);
+
+		if (!isInside && sol2 < 0) return false;
+
+		bool baseIntersection = false, sideIntersection = false;
+
+		if (sol1 < 0)  // Ray origin inside infinite cone
+		{
+			
+
+			if (isInside) {
+				if (sol2 < 0 || c2 < 0) baseIntersection = true;
+				if (c2 > 0) sideIntersection = true;  // t = (c2 < height) ? sol2 : sol1; 
+			}
+			else {
+				if (c1 > 0 && c1 < height) baseIntersection = true;
+				if (c1 < 0 && c2 > 0 && c2 < height) baseIntersection = true;
+
+				if (c1 > 0 && c2 > 0 && c2 < height) sideIntersection = true;  // t = sol2;
+			}
+
+			if (sideIntersection) t = (c2 < height) ? sol2 : sol1;
+		}
+		else if (sol1 > 0)  // Cone in front of ray origin
+		{
+			if (c1 < 0 && c2 > 0 && c2 < height) baseIntersection = true;
+			if (c1 > 0 && c1 < height) sideIntersection = true;
+
+			if (sideIntersection) t = sol1;
+		}
+
+		// Intersection with base plane
+		if (baseIntersection) {
+			normal = (base - apex).normalize();
+			t = ((base - r.origin) * normal) / (normal * r.direction);
+
+			return true;
+		}
+
+		// Intersection with side surface
+		if (sideIntersection) {
+			axis = axis * height;
+			Vector closestOnAxis = base + axis * ((((o + d * t) * axis) - (base * axis)) / (axis * axis));
+			Vector cylinderNormal = ((o + d * t) - closestOnAxis).normalize();
+			Vector toApex = (apex - (o + d * t)).normalize();
+			normal = ((toApex % cylinderNormal) % toApex).normalize();
+
+			return true;
+		}
 	}
 	return false;
 }
@@ -293,7 +382,6 @@ AABB AAC::GetBoundingBox()
 	max += EPSILON;
 
 	return AABB(min, max);
-
 }
 
 aaBox::aaBox(Vector& minPoint, Vector& maxPoint) //Axis aligned Box: another geometric object
@@ -725,13 +813,15 @@ bool Scene::load_p3f(const char *name)
 
 	  else if (cmd == "pl")  // General Plane
 	  {
-          Vector P0, P1, P2;
-		  Plane* plane;
+		  if (accel_struc_type == NONE) {
+			Vector P0, P1, P2;
+			Plane* plane;
 
-          file >> P0 >> P1 >> P2;
-          plane = new Plane(P0, P1, P2);
-	      if (material) plane->SetMaterial(material);
-          this->addObject( (Object*) plane);
+			file >> P0 >> P1 >> P2;
+			plane = new Plane(P0, P1, P2);
+			if (material) plane->SetMaterial(material);
+			this->addObject((Object*)plane);
+		  }
 	  }
 
       else if (cmd == "l")  // Need to check light color since by default is white
