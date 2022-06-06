@@ -6,9 +6,10 @@
 class Ray
 {
 public:
-	Ray(const Vector& o, const Vector& dir ) : origin(o), direction(dir) {};
+	Ray(const Vector& o, const Vector& dir, double time = 0.0) : origin(o), direction(dir), time(time) {};
 
 	Vector origin;
 	Vector direction;
+	double time;
 };
 #endif

@@ -145,6 +145,62 @@ AABB Sphere::GetBoundingBox() {
 	return(AABB(a_min, a_max));
 }
 
+bool MovingSphere::intercepts(Ray& r, float& t)
+{
+	Vector center = this->getStartCenter();
+
+	currentCenter = center + (b_center - center) * r.time;
+
+	float b = (currentCenter - r.origin) * r.direction;
+	float c = ((currentCenter - r.origin) * (currentCenter - r.origin)) - this->getSqRadius();
+
+	if (c > .0f) {
+		if (b <= .0f) return false;
+		if ((pow(b, 2) - c) < .0f) return false;
+		t = b - sqrt(pow(b, 2) - c);
+		return true;
+	}
+	else {
+		t = b + sqrt(pow(b, 2) - c);
+		return true;
+	}
+}
+
+Vector MovingSphere::getNormal(Vector point) {
+	return (point - currentCenter).normalize();
+}
+
+AABB MovingSphere::GetBoundingBox()
+{
+	Vector center = this->getStartCenter();
+	
+	Vector a_min = center;
+	Vector a_max = center;
+
+	a_min -= this->getRadius();
+	a_max += this->getRadius();
+
+	a_min -= EPSILON;
+	a_max += EPSILON;
+
+	AABB startingPosAABB = AABB(a_min, a_max);
+
+	a_min = b_center;
+	a_max = b_center;
+
+	a_min -= this->getRadius();
+	a_max += this->getRadius();
+
+	a_min -= EPSILON;
+	a_max += EPSILON;
+
+	AABB endingPosAABB = AABB(a_min, a_max);
+
+	startingPosAABB.extend(endingPosAABB);
+
+	return startingPosAABB;
+}
+
 bool AAC::intercepts(Ray& r, float& t)
 {
 
@@ -661,11 +717,17 @@ Color Scene::GetSkyboxColor(Ray& r) {
 ////////////////////////////////////////////////////////////////////////////////
 // P3F file parsing methods.
 //
-void next_token(ifstream& file, char *token, const char *name)
+bool next_token(ifstream& file, char *token, const char *name)
 {
-  file >> token;
-  if (strcmp(token, name))
-    cerr << "'" << name << "' expected.\n";
+	streampos oldpos = file.tellg();
+
+	file >> token;
+
+	if (!strcmp(token, name)) 
+		return true;
+		
+	file.seekg(oldpos);
+	return false;
 }
 
 bool Scene::load_p3f(const char *name)
@@ -716,6 +778,19 @@ bool Scene::load_p3f(const char *name)
 	    if (material) sphere->SetMaterial(material);
         this->addObject( (Object*) sphere);
       }
+
+	  else if (cmd == "ms")
+	  {
+		  Vector a_center, b_center;
+		  float radius;
+		  MovingSphere* sphere;
+
+		  file >> a_center >> b_center >> radius;
+
+		  sphere = new MovingSphere(a_center, b_center, radius);
+		  if (material) sphere->SetMaterial(material);
+		  this->addObject((Object*)sphere);
+	  }
 
 	  else if (cmd == "c")    // Cylinder or Cone
 	  {
@@ -823,6 +898,7 @@ bool Scene::load_p3f(const char *name)
         Camera* camera;
 		float focal_ratio; //ratio beteween the focal distance and the viewplane distance
 		float aperture_ratio; // number of times to be multiplied by the size of a pixel
+		float time0 = 0, time1 = 0;
 
 	    next_token (file, token, "from");
 	    file >> from;
@@ -847,8 +923,13 @@ bool Scene::load_p3f(const char *name)
 
 		next_token(file, token, "focal");
 		file >> focal_ratio;
-	    // Create Camera
-		camera = new Camera( from, at, up, fov, hither, 100.0*hither, xres, yres, aperture_ratio, focal_ratio);
+
+		if (next_token(file, token, "timeOpen")) file >> time0;
+
+		if (next_token(file, token, "timeClose")) file >> time1;
+
+		// Create Camera
+		camera = new Camera( from, at, up, fov, hither, 100.0*hither, xres, yres, aperture_ratio, focal_ratio, time0, time1);
         this->SetCamera(camera);
       }
 
@@ -896,10 +977,10 @@ void Scene::create_random_scene() {
 	this->SetBackgroundColor(Color(0.5, 0.7, 1.0));
 	//this->LoadSkybox("skybox");
 	//this->SetSkyBoxFlg(true);
-	this->SetAccelStruct(BVH_ACC);
-	this->SetSamplesPerPixel(0);
+	this->SetAccelStruct(NONE);
+	this->SetSamplesPerPixel(9);
 	
-	camera = new Camera(Vector(-5.312192, 4.456562, 11.963158), Vector(0.0, 0.0, 0), Vector(0.0, 1.0, 0.0), 45.0, 0.01, 10000.0, 800, 600, 0, 1.5f);
+	camera = new Camera(Vector(-5.312192, 4.456562, 11.963158), Vector(0.0, 0.0, 0), Vector(0.0, 1.0, 0.0), 45.0, 0.01, 10000.0, 400, 300, 0, 1.5f, 0, 1);
 	this->SetCamera(camera);
 
 	this->addLight(new Light(Vector(7, 10, -5), Color(1.0, 1.0, 1.0)));

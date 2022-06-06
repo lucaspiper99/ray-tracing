@@ -122,6 +122,26 @@ public:
 private:
 	Vector center;
 	float radius, SqRadius;
+
+protected:
+	Vector getStartCenter() { return center; }
+	float getRadius() { return radius; }
+	float getSqRadius() { return SqRadius; }
+};
+
+class MovingSphere : public Sphere
+{
+public:
+	MovingSphere(Vector& a_center, Vector& b_center, float a_radius) :
+		Sphere(a_center, a_radius), b_center(b_center) {};
+
+	bool intercepts(Ray& r, float& t);
+	Vector getNormal(Vector point);
+	AABB GetBoundingBox(void);
+
+private:
+	Vector b_center;
+	Vector currentCenter;
 };
 
 class AAC : public Object

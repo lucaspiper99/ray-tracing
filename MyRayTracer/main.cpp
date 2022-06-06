@@ -25,7 +25,7 @@
 #include "macros.h"
 
 //Enable OpenGL drawing
-bool drawModeEnabled = false;
+bool drawModeEnabled = true;
 
 bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 
@@ -33,7 +33,7 @@ bool P3F_scene = true; //choose between P3F scene or a built-in random scene
 #define DOF_SAMPLES 4
 
 bool SKYBOX = false;
-bool ANTIALIASING = false;
+bool ANTIALIASING = true;
 bool SOFT_SHADOWS = false;
 bool SOFT_SHADOWS_AA = false;
 bool DOF = false;
@@ -662,7 +662,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 				refletedRayDirection = refletedRayDirection.normalize();
 			}
 
-			Ray reflectedRay = Ray(hitPoint + bias, refletedRayDirection);
+			Ray reflectedRay = Ray(hitPoint + bias, refletedRayDirection, ray.time);
 
 			float reflection = closestObj->GetMaterial()->GetReflection();
 			float T = closestObj->GetMaterial()->GetTransmittance();
@@ -691,7 +691,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 				// refraction (dieletric material and non-total reflection)
 				Vector rt = vt.normalize() * sinT - normal * cosT;
-				Ray transmittedRay = Ray(hitPoint - bias, rt);
+				Ray transmittedRay = Ray(hitPoint - bias, rt, ray.time);
 				resultingColor += rayTracing(transmittedRay, depth + 1, ior_2) * (1 - kr);  // without diffuse
 			}
 
