@@ -324,39 +324,66 @@ bool AAC::intercepts(Ray& r, float& t)
 
 		Vector axis = (apex - base);
 		float height = axis.length();
-		axis = axis.normalize();
+		axis.normalize();
+
+		// distance between base and projection of intersections in axis
 		float c1 = ((o + d * sol1) - base) * axis;
 		float c2 = ((o + d * sol2) - base) * axis;
 
 		float originCoord = x ? o.x : y ? o.y : o.z;
 		bool isInside = (originCoord > coordMin) && (originCoord < coordMax);
 
-		if (!isInside && sol2 < 0) return false;
+		if (sol2 < 0 && (c1 < height || c2 > height || c2 < 0)) return false;
 
 		bool baseIntersection = false, sideIntersection = false;
 
-		if (sol1 < 0)  // Ray origin inside infinite cone
-		{
-			if (isInside) {
-				if (sol2 < 0 || c2 < 0) baseIntersection = true;
-				if (c2 > 0) sideIntersection = true;  // t = (c2 < height) ? sol2 : sol1; 
-			}
-			else {
-				if (c1 > 0 && c1 < height) baseIntersection = true;
-				if (c1 < 0 && c2 > 0 && c2 < height) baseIntersection = true;
-
-				if (c1 > 0 && c2 > 0 && c2 < height) sideIntersection = true;  // t = sol2;
-			}
-
-			if (sideIntersection) t = (c2 < height) ? sol2 : sol1;
+		if (sol2 < 0) {
+			if (isInside && c1 > height && c2 > 0 && c2 < height) baseIntersection = true;  // DENTRO
 		}
-		else if (sol1 > 0)  // Cone in front of ray origin
-		{
-			if (c1 < 0 && c2 > 0 && c2 < height) baseIntersection = true;
-			if (c1 > 0 && c1 < height) sideIntersection = true;
-
-			if (sideIntersection) t = sol1;
+		if (sol2 > 0 && sol1 < 0) {
+			if (c1 > height && c2 > 0 && c2 < height) sideIntersection = true;  // t = sol2;  FORA
+			if (isInside && c2 > 0 && c2 < height) sideIntersection = true;  // t = sol2;  DENTRO
+			if (isInside && c1 > 0 && c1 < height && c2 < 0) baseIntersection = true;  // DENTRO
+			if (!isInside && c2 > 0 && c2 < height && c1 < 0) baseIntersection = true;  // FORA
 		}
+		if (sol1 > 0) {
+
+			if (isInside && c2 > 0 && c2 < height) sideIntersection = true;  // t = sol2;  DENTRO
+			if (c1 > height && c2 > 0 && c2 < height) sideIntersection = true; // t = sol2;
+			if (c1 > 0 && c1 < height) sideIntersection = true; // t = sol1;
+
+			if (c1 < 0 && c2 > 0 && c2 < height) baseIntersection = true;  // FORA
+			if (!isInside && c1 > 0 && c1 < height && c2 > height) baseIntersection = true;  // FORA (DENTRO DO CIL INF)
+		}
+
+		if (sideIntersection) t = (sol1 > 0 && c1 > 0 && c1 < height) ? sol1 : sol2;
+
+		//if (sol1 < 0)  // Ray origin inside infinite cone
+		//{
+		//	if (isInside) {
+		//		if (sol2 < 0 || c2 < 0) baseIntersection = true;
+		//		if (c2 > 0) sideIntersection = true;  // t = (c2 < height) ? sol2 : sol1; 
+		//	}
+		//	else {
+		//		if (c1 > 0 && c1 < height) baseIntersection = true;
+		//		if (c1 < 0 && c2 > 0 && c2 < height) baseIntersection = true;
+
+		//		if (c1 > 0 && c2 > 0 && c2 < height) sideIntersection = true;  // t = sol2;
+
+		//		//if (c1 > height && c2 > 0 && c2 < height) sideIntersection = true;
+
+		//	}
+
+		//	if (sideIntersection) t = (c2 < height) ? sol2 : sol1;
+		//}
+		//else if (sol1 > 0)  // Cone in front of ray origin
+		//{
+		//	if (c1 < 0 && c2 > 0 && c2 < height) baseIntersection = true;
+		//	if (c1 > 0 && c1 < height) sideIntersection = true;
+		//	if (c1 > height && c2 > 0 && c2 < height) sideIntersection = true;
+
+		//	if (sideIntersection) t = sol1;
+		//}
 
 		// Intersection with base plane
 		if (baseIntersection) {
@@ -383,40 +410,25 @@ bool AAC::intercepts(Ray& r, float& t)
 Vector AAC::getNormal(Vector point)
 {
 	return normal;
-
-	/*Vector d = apex - base;
-	Vector closestOnAxis = base + d * (((point * d) - (base * d)) / (d * d));
-	Vector cylinderNormal = (point - closestOnAxis).normalize();
-
-	if (base_radius == apex_radius)  // Cylinder
-	{
-		return cylinderNormal;
-	}
-	else  // Cone
-	{
-		Vector toApex = (apex - point).normalize();
-		Vector coneNormal = ((toApex % cylinderNormal) % toApex).normalize();
-		return coneNormal;
-	}*/
 }
 
 AABB AAC::GetBoundingBox()
 {
 	float xMin, yMin, zMin, xMax, yMax, zMax;
 
-	xMin = (base.x == apex.x) ? base.x - MAX(base_radius, apex_radius) : MIN(base.x, apex.x);
-	yMin = (base.y == apex.y) ? base.y - MAX(base_radius, apex_radius) : MIN(base.y, apex.y);
-	zMin = (base.z == apex.z) ? base.z - MAX(base_radius, apex_radius) : MIN(base.z, apex.z);
+	xMin = (base.x != apex.x) ? MIN(base.x, apex.x) : base.x - MAX(base_radius, apex_radius);
+	yMin = (base.y != apex.y) ? MIN(base.y, apex.y) : base.y - MAX(base_radius, apex_radius);
+	zMin = (base.z != apex.z) ? MIN(base.z, apex.z) : base.z - MAX(base_radius, apex_radius);
 
-	xMax = (base.x == apex.x) ? base.x + MAX(base_radius, apex_radius) : MAX(base.x, apex.x);
-	yMax = (base.y == apex.y) ? base.y + MAX(base_radius, apex_radius) : MAX(base.y, apex.y);
-	zMax = (base.z == apex.z) ? base.z + MAX(base_radius, apex_radius) : MAX(base.z, apex.z);
+	xMax = (base.x != apex.x) ? MAX(base.x, apex.x) : base.x + MAX(base_radius, apex_radius);
+	yMax = (base.y != apex.y) ? MAX(base.y, apex.y) : base.y + MAX(base_radius, apex_radius);
+	zMax = (base.z != apex.z) ? MAX(base.z, apex.z) : base.z + MAX(base_radius, apex_radius);
 
 	Vector min = Vector(xMin, yMin, zMin);
 	Vector max = Vector(xMax, yMax, zMax);
 
-	min -= EPSILON;
-	max += EPSILON;
+	//min -= EPSILON;
+	//max += EPSILON;
 
 	return AABB(min, max);
 }
@@ -869,15 +881,29 @@ bool Scene::load_p3f(const char *name)
 
 	  else if (cmd == "pl")  // General Plane
 	  {
-		  if (accel_struc_type == NONE) {
-			Vector P0, P1, P2;
-			Plane* plane;
+	  if (accel_struc_type == NONE) {
+		  Vector P0, P1, P2;
+		  Plane* plane;
 
-			file >> P0 >> P1 >> P2;
-			plane = new Plane(P0, P1, P2);
-			if (material) plane->SetMaterial(material);
-			this->addObject((Object*)plane);
-		  }
+		  file >> P0 >> P1 >> P2;
+		  plane = new Plane(P0, P1, P2);
+		  if (material) plane->SetMaterial(material);
+		  this->addObject((Object*)plane);
+	  }
+	  else {
+		  Vector P0, P1, P2;
+		  Triangle* triangle1, *triangle2;
+
+		  file >> P0 >> P1 >> P2;
+		  triangle1 = new Triangle(P0, P1, P2);
+		  if (material) triangle1->SetMaterial(material);
+		  this->addObject((Object*)triangle1);
+		  Vector P4 = P2 + ((P0 + P1) * 0.5f - P2) * 2;
+		  triangle2 = new Triangle(P0, P1, P4);
+		  if (material) triangle2->SetMaterial(material);
+		  this->addObject((Object*)triangle2);
+	  }
+		
 	  }
 
       else if (cmd == "l")  // Need to check light color since by default is white

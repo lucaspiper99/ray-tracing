@@ -1,5 +1,5 @@
-accel 0
-spp 0
+accel 1
+spp 4
 bclr 0.678 0.761 0.953
 env skybox
 v

@@ -1,7 +1,7 @@
 #no acceleration data structure
 accel 2
 #no random samples. Just one fixed sample per pixel
-spp 0
+spp 4
 #blueish background color
 bclr 0.078 0.361 0.753
 env skybox

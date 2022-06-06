@@ -653,7 +653,7 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 			Vector refletedRayDirection = (normal * (2 * (v * normal)) - v);
 			
 			if (FUZZY_REFLECTIONS) {
-				float roughness = .3f;
+				float roughness = 2.0f;
 				Vector rand_in_unit_sphere = Vector((float)rand() / (RAND_MAX), (float)rand() / (RAND_MAX), (float)rand() / (RAND_MAX));
 				rand_in_unit_sphere = rand_in_unit_sphere.normalize();
 				refletedRayDirection = (refletedRayDirection + rand_in_unit_sphere * roughness).normalize();
@@ -676,8 +676,8 @@ Color rayTracing(Ray ray, int depth, float ior_1)  //index of refraction of medi
 
 			if (sinT > 1 || T == 0) {  // total reflection or non-dieletric material
 
-				//if (reflection > 0) resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * specColor * reflection;
-				if (reflection > 0) resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * reflection;
+				if (reflection > 0) resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * specColor * reflection;
+				//if (reflection > 0) resultingColor += rayTracing(reflectedRay, depth + 1, ior_1) * reflection;
 					
 			}
 			else {
